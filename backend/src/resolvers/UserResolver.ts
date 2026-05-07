@@ -1,4 +1,11 @@
-import { Mutation, Arg, Query, Ctx, ObjectType, Field } from "type-graphql";
+import {
+  Mutation,
+  Arg,
+  Query,
+  Ctx,
+  ObjectType,
+  Field,
+} from "type-graphql";
 import bcrypt from "bcryptjs";
 import { Role, User } from "../entities/User";
 import jwt from "jsonwebtoken";
@@ -176,6 +183,62 @@ export class UserResolver {
         id: userFromDB.id,
         email: userFromDB.email,
         role: userFromDB.role,
+      },
+      secret,
+      { expiresIn: "7d" }
+    );
+
+    context.res.setHeader("Set-Cookie", buildAuthCookie(token));
+
+    return token;
+  }
+
+  @Mutation(() => String)
+  async createAdmin(
+    @Arg("email") email: string,
+    @Arg("firstname") firstname: string,
+    @Arg("lastname") lastname: string,
+    @Arg("password") password: string,
+    @Arg("adminCode", { nullable: true }) adminCode: string,
+    @Ctx() context: any
+  ) {
+    const secret = process.env.JWT_SECRET_KEY;
+    if (!secret) throw new Error("NO JWT SECRET KEY DEFINED");
+
+    const existingUser = await User.findOneBy({ email });
+    if (existingUser) {
+      throw new Error("Un compte existe deja avec cet email.");
+    }
+
+    const adminCount = await User.countBy({ role: Role.Admin });
+    const setupCode = process.env.ADMIN_REGISTRATION_CODE;
+    const isCurrentUserAdmin = context.role === Role.Admin;
+    const isFirstAdmin = adminCount === 0;
+    const hasValidSetupCode = Boolean(
+      setupCode && adminCode?.trim() === setupCode.trim()
+    );
+
+    if (!isFirstAdmin && !isCurrentUserAdmin && !hasValidSetupCode) {
+      throw new Error(
+        "Inscription administrateur refusee. Connectez-vous en admin ou utilisez le code administrateur."
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const adminFromDB = await User.save({
+      email,
+      firstname,
+      lastname,
+      hashedPassword,
+      role: Role.Admin,
+    });
+
+    const token = jwt.sign(
+      {
+        id: adminFromDB.id,
+        email: adminFromDB.email,
+        role: adminFromDB.role,
       },
       secret,
       { expiresIn: "7d" }

@@ -1,4 +1,5 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
@@ -299,6 +300,7 @@ function AdminContent() {
         <div className="admin-shortcuts">
           <a href="#commandes-clients">Reservations</a>
           <a href="#gestion-produits">Produits</a>
+          <Link href="/inscription-administrateur">Nouvel admin</Link>
         </div>
       </section>
 

@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@apollo/client";
 import Link from "next/link";
+import { WHO_AM_I } from "../graphql/queries";
+import { Role } from "../interface/types";
 
 const mainLinks = [
   { href: "/", label: "Accueil" },
@@ -18,6 +21,15 @@ const serviceLinks = [
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const { data } = useQuery(WHO_AM_I, {
+    fetchPolicy: "cache-and-network",
+  });
+  const user = data?.whoAmI;
+  const isLoggedIn = Boolean(user?.isLoggedIn);
+  const isClientLoggedIn = isLoggedIn && user?.role === Role.User;
+  const isAdminLoggedIn = isLoggedIn && user?.role === Role.Admin;
+  const clientName = [user?.firstname, user?.lastname].filter(Boolean).join(" ");
+  const clientLabel = clientName || user?.email || "Mon compte client";
 
   useEffect(() => {
     const handleResize = () => {
@@ -56,8 +68,16 @@ export default function Header() {
           </div>
           <div className="nav-actions">
             <Link href="/panier">Panier</Link>
-            <Link href="/connexion-client">Inscription</Link>
-            <Link href="/admin">Admin</Link>
+            {isClientLoggedIn ? (
+              <Link className="nav-user-link" href="/clients">
+                Bonjour {clientLabel}
+              </Link>
+            ) : !isLoggedIn ? (
+              <Link href="/connexion-client">Inscription</Link>
+            ) : null}
+            <Link href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}>
+              {isAdminLoggedIn ? "Interface admin" : "Admin"}
+            </Link>
           </div>
         </nav>
       )}
@@ -106,16 +126,25 @@ export default function Header() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/connexion-client" onClick={() => setIsOpen(false)}>
-                    Connexion / inscription
-                  </Link>
+                  {isClientLoggedIn ? (
+                    <Link href="/clients" onClick={() => setIsOpen(false)}>
+                      Bonjour {clientLabel}
+                    </Link>
+                  ) : !isLoggedIn ? (
+                    <Link
+                      href="/connexion-client"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Connexion / inscription
+                    </Link>
+                  ) : null}
                 </li>
                 <li>
                   <Link
-                    href="/admin"
+                    href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}
                     onClick={() => setIsOpen(false)}
                   >
-                    Admin
+                    {isAdminLoggedIn ? "Interface admin" : "Admin"}
                   </Link>
                 </li>
               </ul>

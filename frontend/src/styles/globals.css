@@ -188,6 +188,15 @@ h1 {
   box-shadow: none;
 }
 
+.nav-actions .nav-user-link {
+  max-width: 180px;
+  overflow: hidden;
+  color: #ffffff;
+  background: var(--rose);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nav0 .nav-services a {
   min-height: 32px;
   padding: 7px 12px;
@@ -994,6 +1003,10 @@ form button:hover,
   padding: 30px;
 }
 
+.admin-registration-panel {
+  width: min(620px, 100%);
+}
+
 .client-auth-layout {
   display: grid;
   grid-template-columns: minmax(280px, 0.82fr) minmax(320px, 1.18fr);
@@ -1013,6 +1026,19 @@ form button:hover,
 .auth-form {
   display: grid;
   gap: 16px;
+}
+
+.auth-helper {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.auth-two-columns,
+.auth-link-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .admin-auth-panel .auth-form button {
@@ -2365,6 +2391,11 @@ footer a {
 
   .auth-panel {
     padding: 24px;
+  }
+
+  .auth-two-columns,
+  .auth-link-row {
+    grid-template-columns: 1fr;
   }
 
   .review-card {

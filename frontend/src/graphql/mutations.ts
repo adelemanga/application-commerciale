@@ -116,6 +116,24 @@ export const CREATE_NEW_USER = gql`
   }
 `;
 
+export const CREATE_ADMIN = gql`
+  mutation CreateAdmin(
+    $email: String!
+    $password: String!
+    $firstname: String!
+    $lastname: String!
+    $adminCode: String
+  ) {
+    createAdmin(
+      email: $email
+      password: $password
+      firstname: $firstname
+      lastname: $lastname
+      adminCode: $adminCode
+    )
+  }
+`;
+
 export const DELETE_PRODUCT = gql`
   mutation DeleteProduct($deleteProductId: ID!) {
     deleteProduct(id: $deleteProductId)

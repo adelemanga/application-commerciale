@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
@@ -6,7 +7,6 @@ import { buildSchema } from "type-graphql";
 import ProductResolver from "./resolvers/ProductResolver";
 import ArticleResolver from "../src/resolvers/ArticleResolver";
 import UserResolver from "./resolvers/UserResolver";
-import "dotenv/config";
 import setCookieParser from "set-cookie-parser";
 import jwt from "jsonwebtoken";
 import ReservationResolver from "./resolvers/ReservationResolver";

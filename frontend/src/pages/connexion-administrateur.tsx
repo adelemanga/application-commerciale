@@ -73,6 +73,9 @@ function ConnexionAdministrateurContent() {
         <Link className="auth-secondary-link" href="/admin">
           Ouvrir l'interface admin
         </Link>
+        <Link className="auth-secondary-link" href="/inscription-administrateur">
+          Inscrire un administrateur
+        </Link>
       </section>
     </main>
   );
