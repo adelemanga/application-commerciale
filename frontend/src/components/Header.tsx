@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@apollo/client";
+import { useLazyQuery, useQuery } from "@apollo/client";
 import Link from "next/link";
-import { WHO_AM_I } from "../graphql/queries";
+import { useRouter } from "next/router";
+import { LOGOUT, WHO_AM_I } from "../graphql/queries";
 import { Role } from "../interface/types";
 
 const mainLinks = [
   { href: "/", label: "Accueil" },
+  { href: "/about", label: "Presentation" },
+  { href: "/projects", label: "Projets" },
   { href: "/produits", label: "Boutique" },
   { href: "/customer-advice", label: "Avis" },
   { href: "/contact", label: "Contact" },
@@ -19,10 +22,14 @@ const serviceLinks = [
 ];
 
 export default function Header() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const { data } = useQuery(WHO_AM_I, {
+  const { data, refetch } = useQuery(WHO_AM_I, {
     fetchPolicy: "cache-and-network",
+  });
+  const [logout] = useLazyQuery(LOGOUT, {
+    fetchPolicy: "network-only",
   });
   const user = data?.whoAmI;
   const isLoggedIn = Boolean(user?.isLoggedIn);
@@ -43,6 +50,13 @@ export default function Header() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    await refetch();
+    setIsOpen(false);
+    router.push("/");
+  };
 
   return (
     <header className="navbar">
@@ -78,6 +92,11 @@ export default function Header() {
             <Link href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}>
               {isAdminLoggedIn ? "Interface admin" : "Admin"}
             </Link>
+            {isLoggedIn && (
+              <Link href="/" onClick={handleLogout}>
+                Deconnexion
+              </Link>
+            )}
           </div>
         </nav>
       )}
@@ -147,6 +166,13 @@ export default function Header() {
                     {isAdminLoggedIn ? "Interface admin" : "Admin"}
                   </Link>
                 </li>
+                {isLoggedIn && (
+                  <li>
+                    <Link href="/" onClick={handleLogout}>
+                      Deconnexion
+                    </Link>
+                  </li>
+                )}
               </ul>
             </nav>
           </div>

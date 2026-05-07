@@ -1,4 +1,5 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -48,6 +49,7 @@ function ClientsContent() {
     [data]
   );
   const user = userData?.whoAmI;
+  const isLoggedIn = Boolean(user?.isLoggedIn);
   const orderHistory = historyData?.getReservationsByUserId ?? [];
   const likedProducts = products.filter((product) =>
     likedProductIds.includes(product.id)
@@ -82,6 +84,12 @@ function ClientsContent() {
 
   const orderProduct = async (product: ProductWithArticles) => {
     setMessage("");
+
+    if (!isLoggedIn) {
+      setMessage("Connectez-vous ou creez un compte avant d'ajouter au panier.");
+      return;
+    }
+
     const articleId = product.articles?.[0]?.id;
 
     if (!articleId) {
@@ -125,7 +133,7 @@ function ClientsContent() {
         </p>
       </section>
 
-      {user?.isLoggedIn && (
+      {isLoggedIn && (
         <section className="client-profile-panel">
           <div className="client-profile-identity">
             <img
@@ -181,6 +189,15 @@ function ClientsContent() {
       {message && <p className="shop-message">{message}</p>}
       {loading && <p className="shop-message">Chargement des produits...</p>}
       {error && <p className="shop-message">Impossible de charger les produits.</p>}
+
+      {!isLoggedIn && (
+        <section className="shop-auth-callout">
+          <p>Pour commander un produit, connectez-vous ou creez un compte client.</p>
+          <div>
+            <Link href="/connexion-client">Connexion ou inscription</Link>
+          </div>
+        </section>
+      )}
 
       <section className="shop-layout">
         <div className="product-grid">

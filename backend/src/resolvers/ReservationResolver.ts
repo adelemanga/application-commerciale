@@ -169,7 +169,10 @@ export class ReservationResolver {
 
       await reservation.save();
     }
-    return reservation;
+    return Reservation.findOneOrFail({
+      where: { id: reservation.id },
+      relations: ["user", "articles", "articles.product"],
+    });
   }
 
   @Mutation(() => Reservation)

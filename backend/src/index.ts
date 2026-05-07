@@ -95,7 +95,7 @@ const start = async () => {
     })
   );
 
-  const port = Number(process.env.PORT) || 4003;
+  const port = Number(process.env.PORT) || 4004;
   await new Promise<void>((resolve) =>
     httpServer.listen({ port, host: "0.0.0.0" }, resolve)
   );

@@ -1741,14 +1741,64 @@ form.avis {
 }
 
 .portfolio {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 70px);
   padding: 44px 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(232, 23, 93, 0.28), transparent 30%),
+    radial-gradient(circle at 82% 18%, rgba(127, 154, 136, 0.28), transparent 34%),
+    linear-gradient(135deg, #fff7f4 0%, #f5d9df 42%, #e8efe7 100%);
+}
+
+.wave {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  bottom: -34%;
+  width: 165vw;
+  height: 165vw;
+  border-radius: 43%;
+  transform: translateX(-50%);
+  opacity: 0.42;
+  animation: portfolio-wave 16s linear infinite;
+}
+
+.wave-one {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.wave-two {
+  bottom: -38%;
+  border-radius: 46%;
+  background: rgba(184, 95, 122, 0.3);
+  animation-duration: 22s;
+  animation-direction: reverse;
+}
+
+.wave-three {
+  bottom: -42%;
+  border-radius: 40%;
+  background: rgba(127, 154, 136, 0.26);
+  animation-duration: 28s;
+}
+
+@keyframes portfolio-wave {
+  from {
+    transform: translateX(-50%) rotate(0deg);
+  }
+
+  to {
+    transform: translateX(-50%) rotate(360deg);
+  }
 }
 
 .profile-card {
+  position: relative;
+  z-index: 1;
   width: min(430px, 100%);
   padding: 30px;
   text-align: center;

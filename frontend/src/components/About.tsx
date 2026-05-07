@@ -1,11 +1,11 @@
-import Image from "next/image";
 import Link from "next/link";
 
 export default function AboutMe() {
   return (
     <div className="portfolio">
-      {/* Arrière-plan flou */}
-      <div className="blur-background"></div>
+      <div className="wave wave-one"></div>
+      <div className="wave wave-two"></div>
+      <div className="wave wave-three"></div>
 
       {/* Card de présentation */}
       <div className="profile-card">

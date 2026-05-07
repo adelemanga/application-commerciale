@@ -81,7 +81,7 @@ function ConnexionClientContent() {
     try {
       const result = await loginClient({
         variables: {
-          email,
+          email: email.trim().toLowerCase(),
           password,
         },
       });
@@ -130,10 +130,10 @@ function ConnexionClientContent() {
     try {
       await createUser({
         variables: {
-          firstname,
-          lastname,
-          email: registerEmail,
-          phone,
+          firstname: firstname.trim(),
+          lastname: lastname.trim(),
+          email: registerEmail.trim().toLowerCase(),
+          phone: phone.trim(),
           address,
           avatarUrl,
           password: registerPassword,

@@ -160,7 +160,8 @@ export class UserResolver {
     const secret = process.env.JWT_SECRET_KEY;
     if (!secret) throw new Error("NO JWT SECRET KEY DEFINED");
 
-    const existingUser = await User.findOneBy({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOneBy({ email: normalizedEmail });
     if (existingUser) {
       throw new Error("Un compte existe deja avec cet email.");
     }
@@ -169,11 +170,11 @@ export class UserResolver {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const userFromDB = await User.save({
-      email,
-      firstname,
-      lastname,
-      phone,
-      address,
+      email: normalizedEmail,
+      firstname: firstname.trim(),
+      lastname: lastname.trim(),
+      phone: phone?.trim(),
+      address: address?.trim(),
       avatarUrl,
       hashedPassword,
     });
@@ -205,7 +206,8 @@ export class UserResolver {
     const secret = process.env.JWT_SECRET_KEY;
     if (!secret) throw new Error("NO JWT SECRET KEY DEFINED");
 
-    const existingUser = await User.findOneBy({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOneBy({ email: normalizedEmail });
     if (existingUser) {
       throw new Error("Un compte existe deja avec cet email.");
     }
@@ -227,9 +229,9 @@ export class UserResolver {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const adminFromDB = await User.save({
-      email,
-      firstname,
-      lastname,
+      email: normalizedEmail,
+      firstname: firstname.trim(),
+      lastname: lastname.trim(),
       hashedPassword,
       role: Role.Admin,
     });
