@@ -1,0 +1,42 @@
+{
+  "name": "countryapi",
+  "version": "1.0.0",
+  "description": "To install deps : ```sh npm i ```",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "ts-node-dev src/index.ts",
+    "resetDB": "ts-node-dev src/resetDb.ts",
+    "seed": "ts-node src/seed.ts",
+    "seed:beauty": "ts-node src/seedBeauty.ts",
+    "start": "ts-node-dev --poll ./src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@apollo/server": "^4.11.3",
+    "axios": "^1.8.1",
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.3",
+    "class-validator": "0.14.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "graphql": "^16.10.0",
+    "nodemailer": "^6.10.0",
+    "pg": "^8.13.3",
+    "reflect-metadata": "^0.2.2",
+    "sqlite3": "^5.1.7",
+    "type-graphql": "^2.0.0-beta.6",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "2.8.17",
+    "@types/jsonwebtoken": "^9.0.8",
+    "@types/nodemailer": "^6.4.17",
+    "@types/set-cookie-parser": "^2.4.10",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  },
+  "type": "commonjs"
+}
