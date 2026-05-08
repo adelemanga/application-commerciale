@@ -57,9 +57,12 @@ function ProduitsContent() {
     GET_CURRENT_RESERVATION_BY_USER_ID,
     { fetchPolicy: "network-only" }
   );
-  const [handleReservation, { loading: adding }] = useMutation(HANDLE_RESERVATION, {
-    refetchQueries: [{ query: GET_CURRENT_RESERVATION_BY_USER_ID }],
-  });
+  const [handleReservation, { loading: adding }] = useMutation(
+    HANDLE_RESERVATION,
+    {
+      refetchQueries: [{ query: GET_CURRENT_RESERVATION_BY_USER_ID }],
+    }
+  );
 
   const products = useMemo<ProductWithArticles[]>(
     () => data?.getAllProducts ?? [],
@@ -90,7 +93,9 @@ function ProduitsContent() {
     setMessage("");
 
     if (!isLoggedIn) {
-      setMessage("Connectez-vous ou creez un compte avant d'ajouter au panier.");
+      setMessage(
+        "Connectez-vous ou creez un compte avant d'ajouter au panier."
+      );
       return;
     }
 
@@ -142,11 +147,16 @@ function ProduitsContent() {
 
       {message && <p className="shop-message">{message}</p>}
       {loading && <p className="shop-message">Chargement des produits...</p>}
-      {error && <p className="shop-message">Impossible de charger les produits.</p>}
+      {error && (
+        <p className="shop-message">Impossible de charger les produits.</p>
+      )}
 
       {!isLoggedIn && (
         <section className="shop-auth-callout">
-          <p>Pour ajouter un produit au panier, connectez-vous ou creez un compte client.</p>
+          <p>
+            Pour ajouter un produit au panier, connectez-vous ou creez un compte
+            client.
+          </p>
           <div>
             <Link href="/connexion-client">Connexion ou inscription</Link>
           </div>

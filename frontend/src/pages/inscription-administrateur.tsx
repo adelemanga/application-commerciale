@@ -25,11 +25,11 @@ function InscriptionAdministrateurContent() {
     try {
       await createAdmin({
         variables: {
-          firstname,
-          lastname,
-          email,
-          password,
-          adminCode: adminCode || null,
+          firstname: firstname.trim(),
+          lastname: lastname.trim(),
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
+          adminCode: adminCode.trim() || null,
         },
       });
       await client.refetchQueries({ include: [WHO_AM_I] });

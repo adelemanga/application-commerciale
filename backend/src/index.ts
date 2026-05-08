@@ -80,12 +80,19 @@ const start = async () => {
       });
 
       if (cookies.token && cookies.token.value) {
-        const payload = jwt.verify(
-          cookies.token.value,
-          process.env.JWT_SECRET_KEY
-        ) as jwt.JwtPayload;
-        if (payload) {
-          return { ...payload, res: res };
+        try {
+          const payload = jwt.verify(
+            cookies.token.value,
+            process.env.JWT_SECRET_KEY
+          ) as jwt.JwtPayload;
+          if (payload) {
+            return { ...payload, res: res };
+          }
+        } catch {
+          res.setHeader(
+            "Set-Cookie",
+            "token=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/"
+          );
         }
       }
       return {

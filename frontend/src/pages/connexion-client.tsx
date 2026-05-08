@@ -82,7 +82,7 @@ function ConnexionClientContent() {
       const result = await loginClient({
         variables: {
           email: email.trim().toLowerCase(),
-          password,
+          password: password.trim(),
         },
       });
       if (result.error) {
@@ -90,8 +90,11 @@ function ConnexionClientContent() {
       }
       await client.refetchQueries({ include: [WHO_AM_I] });
       router.push("/clients");
-    } catch {
-      setMessage("Connexion client refusee. Verifiez votre email et mot de passe.");
+    } catch (error: any) {
+      const errorMessage = error?.graphQLErrors?.[0]?.message;
+      setMessage(
+        errorMessage || "Connexion client refusee. Verifiez votre email et mot de passe."
+      );
     }
   };
 
@@ -136,15 +139,16 @@ function ConnexionClientContent() {
           phone: phone.trim(),
           address,
           avatarUrl,
-          password: registerPassword,
+          password: registerPassword.trim(),
         },
       });
       await client.refetchQueries({ include: [WHO_AM_I] });
-      router.push("/produits");
+      router.push("/clients");
     } catch (error: any) {
       const errorMessage = error?.graphQLErrors?.[0]?.message;
       setRegisterMessage(
-        errorMessage || "Impossible de creer ce compte client. Verifiez les informations."
+        errorMessage ||
+          "Impossible de creer ce compte client. Utilisez un email different de votre compte administrateur et verifiez les informations."
       );
     }
   };

@@ -492,6 +492,28 @@ main,
   margin: 0 auto 24px;
 }
 
+.client-welcome-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+  text-align: left;
+}
+
+.client-welcome-hero h1,
+.client-welcome-hero p {
+  text-align: left;
+}
+
+.client-welcome-avatar {
+  width: clamp(112px, 15vw, 168px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 5px solid #ffffff;
+  box-shadow: 0 20px 42px rgba(94, 47, 79, 0.22);
+}
+
 .client-profile-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -2331,6 +2353,7 @@ footer a {
   .shop-layout,
   .admin-layout,
   .client-auth-layout,
+  .client-welcome-hero,
   .client-profile-panel,
   .client-space-grid,
   .order-row,
@@ -2389,6 +2412,16 @@ footer a {
   .shop-auth-callout {
     display: grid;
     justify-items: start;
+  }
+
+  .client-welcome-hero {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .client-welcome-hero h1,
+  .client-welcome-hero p {
+    text-align: center;
   }
 
   .beauty-hero-copy {

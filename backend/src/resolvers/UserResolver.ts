@@ -52,13 +52,14 @@ export class UserResolver {
   ) {
     const secret = process.env.JWT_SECRET_KEY;
     if (!secret) throw new Error("NO JWT SECRET KEY DEFINED");
+    const normalizedEmail = emailFromClient.trim().toLowerCase();
 
     const userFromDB = await User.findOneByOrFail({
-      email: emailFromClient,
+      email: normalizedEmail,
     });
 
     const isPasswordCorrect = await bcrypt.compare(
-      passwordFromClient,
+      passwordFromClient.trim(),
       userFromDB.hashedPassword
     );
 
@@ -121,8 +122,13 @@ export class UserResolver {
         context,
         Role.User
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err?.message === "Bad Role") {
+        throw new Error(
+          "Ce compte est un administrateur. Connectez-vous sur la page administrateur."
+        );
+      }
       throw new Error("Connexion client refusee");
     }
   }
@@ -140,8 +146,13 @@ export class UserResolver {
         context,
         Role.Admin
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err?.message === "Bad Role") {
+        throw new Error(
+          "Ce compte est un compte client. Connectez-vous sur la page client."
+        );
+      }
       throw new Error("Connexion administrateur refusee");
     }
   }
@@ -163,11 +174,15 @@ export class UserResolver {
     const normalizedEmail = email.trim().toLowerCase();
     const existingUser = await User.findOneBy({ email: normalizedEmail });
     if (existingUser) {
-      throw new Error("Un compte existe deja avec cet email.");
+      throw new Error(
+        existingUser.role === Role.Admin
+          ? "Cet email est deja utilise par un compte administrateur. Utilisez un autre email pour creer un compte client."
+          : "Un compte client existe deja avec cet email. Connectez-vous avec ce compte."
+      );
     }
 
     // HASH PASSWORD (bcrypt FIX IMPORTANT)
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
 
     const userFromDB = await User.save({
       email: normalizedEmail,
@@ -226,7 +241,7 @@ export class UserResolver {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
 
     const adminFromDB = await User.save({
       email: normalizedEmail,
@@ -260,7 +275,11 @@ export class UserResolver {
       return { isLoggedIn: false };
     }
 
-    const user = await User.findOneByOrFail({ id: context.id });
+    const user = await User.findOneBy({ id: context.id });
+
+    if (!user) {
+      return { isLoggedIn: false };
+    }
 
     return {
       isLoggedIn: true,
