@@ -62,6 +62,10 @@ export default function Header() {
     router.push("/");
   };
 
+  const prefetchRoute = (href: string) => {
+    router.prefetch(href).catch(() => undefined);
+  };
+
   return (
     <header className="navbar">
       {/* Menu Desktop */}
@@ -72,21 +76,34 @@ export default function Header() {
           </Link>
           <div className="nav-links">
             {mainLinks.map((link) => (
-              <Link key={link.href} href={link.href}>
+              <Link
+                key={link.href}
+                href={link.href}
+                onMouseEnter={() => prefetchRoute(link.href)}
+              >
                 {link.label}
               </Link>
             ))}
           </div>
           <div className="nav-links nav-services" aria-label="Services beaute">
             {serviceLinks.map((link) => (
-              <Link key={link.href} href={link.href}>
+              <Link
+                key={link.href}
+                href={link.href}
+                onMouseEnter={() => prefetchRoute(link.href)}
+              >
                 {link.label}
               </Link>
             ))}
           </div>
           <div className="nav-actions">
             {!isAdminLoggedIn && (
-              <Link className="cart-icon-link" href="/panier" aria-label="Panier">
+              <Link
+                className="cart-icon-link"
+                href="/panier"
+                aria-label="Panier"
+                onMouseEnter={() => prefetchRoute("/panier")}
+              >
                 <ShoppingBag aria-hidden="true" size={19} strokeWidth={2.2} />
                 <span>Panier</span>
               </Link>

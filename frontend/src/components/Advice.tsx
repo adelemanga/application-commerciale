@@ -127,8 +127,11 @@ function Advice() {
   };
 
   return (
-    <div className="contact1">
-      <h1>Laissez votre avis</h1>
+    <section className="customer-advice-form-section">
+      <div className="advice-form-heading">
+        <p className="shop-kicker">Avis clients</p>
+        <h1>Laissez votre avis</h1>
+      </div>
 
       <form className="avis" onSubmit={handleSubmit}>
         <div className="advice-upload">
@@ -189,11 +192,7 @@ function Advice() {
               <span
                 key={value}
                 onClick={() => handleRatingChange(value)}
-                style={{
-                  cursor: "pointer",
-                  color: value <= formData.rating ? "gold" : "blue",
-                  fontSize: "30px",
-                }}
+                className={value <= formData.rating ? "star active" : "star"}
               >
                 &#9733;
               </span>
@@ -220,14 +219,7 @@ function Advice() {
         {error && <p className="error-message">Une erreur est survenue.</p>}
       </form>
 
-      <div className="image-container1">
-        <img
-          src="https://adelemanga-portfolio.netlify.app/static/media/girlme.0acab6167e7db055cb7a.png"
-          alt="Original Image"
-          className="clone-1"
-        />
-      </div>
-    </div>
+    </section>
   );
 }
 

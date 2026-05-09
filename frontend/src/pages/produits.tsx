@@ -55,7 +55,9 @@ function ProduitsContent() {
   });
   const isLoggedIn = Boolean(userData?.whoAmI?.isLoggedIn);
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS, {
-    fetchPolicy: "network-only",
+    fetchPolicy: "cache-and-network",
+    nextFetchPolicy: "cache-first",
+    notifyOnNetworkStatusChange: false,
   });
   const { data: cartData, refetch: refetchCart } = useQuery(
     GET_CURRENT_RESERVATION_BY_USER_ID,
@@ -198,7 +200,9 @@ function ProduitsContent() {
       </section>
 
       {message && <p className="shop-message">{message}</p>}
-      {loading && <p className="shop-message">La boutique se prepare...</p>}
+      {loading && !products.length && (
+        <p className="shop-message">La boutique se prepare...</p>
+      )}
       {error && (
         <p className="shop-message">Impossible d'afficher la boutique pour le moment.</p>
       )}

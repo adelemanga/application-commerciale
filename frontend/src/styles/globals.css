@@ -1138,6 +1138,21 @@ main,
   color: var(--ink);
 }
 
+.client-history-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 0;
+  padding-top: 12px;
+  color: var(--plum);
+  border-top: 1px solid rgba(184, 95, 122, 0.18);
+  font-weight: 850;
+}
+
+.client-history-total strong {
+  color: var(--rose);
+}
+
 .liked-product {
   padding: 10px;
   background: #fffaf4;
@@ -1641,6 +1656,110 @@ form button:hover,
   line-height: 1.5;
 }
 
+.address-autocomplete-field {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.address-search-status {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.address-search-hint {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.address-suggestions {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  padding: 6px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.16);
+  border-radius: 8px;
+  box-shadow: 0 18px 38px rgba(65, 38, 55, 0.16);
+}
+
+.address-suggestions button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: auto;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--ink);
+  background: #fffaf4;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.address-suggestions button:hover,
+.address-suggestions button:focus {
+  background: #f7ead7;
+  border-color: rgba(184, 95, 122, 0.24);
+}
+
+.address-suggestions span,
+.address-selected-details span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.address-selected-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px;
+  background: rgba(232, 239, 231, 0.45);
+  border: 1px solid rgba(127, 154, 136, 0.2);
+  border-radius: 8px;
+}
+
+.relay-address-field {
+  min-width: 0;
+}
+
+.mondial-relay-picker {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.14);
+  border-radius: 8px;
+}
+
+.mondial-relay-picker > span {
+  color: var(--plum);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.mondial-relay-picker p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.mondial-relay-picker table,
+.mondial-relay-picker iframe,
+.mondial-relay-picker .MR-Widget {
+  max-width: 100%;
+}
+
 .checkout-form-card .payment-warning {
   padding: 12px 14px;
   color: #7d4a17;
@@ -2025,6 +2144,66 @@ form button:hover,
 .admin-orders {
   width: min(1240px, 100%);
   margin: 0 auto 24px;
+}
+
+.admin-messages {
+  width: min(1240px, 100%);
+  margin: 0 auto 24px;
+}
+
+.admin-message-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.admin-message-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.35fr) minmax(0, 0.65fr);
+  gap: 16px;
+  padding: 16px;
+  background: #fffaf4;
+  border: 1px solid rgba(184, 95, 122, 0.16);
+  border-radius: 8px;
+}
+
+.admin-message-card div {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+}
+
+.admin-message-card strong {
+  color: var(--ink);
+}
+
+.admin-message-card a {
+  width: fit-content;
+  color: var(--plum);
+  font-weight: 800;
+}
+
+.admin-message-card .gmail-reply-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 9px 12px;
+  color: #ffffff;
+  background: var(--plum);
+  border-radius: 6px;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.admin-message-card .gmail-reply-button:hover {
+  background: var(--rose);
+}
+
+.admin-message-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .admin-section-heading {
@@ -2508,66 +2687,61 @@ form.avis {
   background: var(--rose);
 }
 
-.advice-list {
-  text-align: center;
-}
-
-.advice-list h2,
 .projects-title {
   color: var(--plum);
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(2rem, 5vw, 3.2rem);
 }
 
-.advice-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px;
+.customer-advice-form-section,
+.customer-advice-list-section {
+  width: min(1040px, calc(100% - 32px));
+  margin: 42px auto;
 }
 
-.advice-card {
-  width: 100%;
-  margin: 0;
-  padding: 54px 20px 20px;
-  position: relative;
+.advice-form-heading {
+  margin: 0 auto 18px;
   text-align: center;
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 
-.advice-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow);
-}
-
-.advice-card h3 {
-  margin-top: 14px;
+.advice-form-heading h1,
+.customer-advice-list-section h1 {
+  margin: 0;
   color: var(--plum);
-  font-size: 1.5rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.35rem, 6vw, 4rem);
+  line-height: 1;
+  text-align: center;
 }
 
-.advice-avatar,
-.advice-upload img {
-  width: 96px;
-  height: 96px;
-  object-fit: cover;
-  border: 4px solid #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 12px 26px rgba(94, 47, 79, 0.18);
-}
-
-.advice-avatar {
-  position: absolute;
-  top: -48px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ffffff;
+.customer-advice-form-section form.avis {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: clamp(22px, 4vw, 34px);
+  background: #fffaf4;
+  border: 1px solid rgba(184, 95, 122, 0.18);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
 }
 
 .advice-upload {
   display: grid;
   justify-items: center;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(184, 95, 122, 0.14);
+}
+
+.advice-upload img,
+.advice-avatar {
+  width: 104px;
+  height: 104px;
+  object-fit: cover;
+  background: #ffffff;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 14px 28px rgba(94, 47, 79, 0.18);
 }
 
 .advice-upload label {
@@ -2575,22 +2749,88 @@ form.avis {
   align-items: center;
   justify-content: center;
   min-height: 38px;
-  padding: 9px 14px;
+  padding: 9px 15px;
   color: #ffffff;
   background: var(--plum);
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 850;
   cursor: pointer;
 }
 
 .advice-upload input {
-  width: min(260px, 100%);
+  width: min(320px, 100%);
+}
+
+.stars {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.star {
+  color: #c9b8c0;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.star.active {
+  color: #c7952d;
+}
+
+.customer-advice-list-section {
+  display: grid;
+  gap: 28px;
+}
+
+.customer-advice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+
+.advice-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-height: 0;
+  padding: 68px 20px 22px;
+  margin-top: 52px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid rgba(184, 95, 122, 0.16);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.advice-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+
+.advice-card .advice-avatar {
+  position: absolute;
+  top: -52px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.advice-card h3 {
+  margin: 0;
+  color: var(--plum);
+  font-size: 1.35rem;
+  line-height: 1.2;
 }
 
 .advice-card p {
+  margin: 0;
   color: var(--muted);
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .advice-card .name {
@@ -2598,9 +2838,9 @@ form.avis {
   font-weight: 850;
 }
 
-.advice-card .rating,
-.stars {
-  color: #b9892d;
+.advice-card .rating {
+  color: #c7952d;
+  letter-spacing: 1px;
 }
 
 .projects-container {
@@ -3339,6 +3579,7 @@ footer a {
   .client-profile-panel,
   .client-space-grid,
   .order-row,
+  .admin-message-card,
   .cart-panel,
   .checkout-layout {
     grid-template-columns: 1fr;

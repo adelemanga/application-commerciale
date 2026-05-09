@@ -21,6 +21,7 @@ import {
   UPDATE_RESERVATION_ADMIN,
 } from "../graphql/mutations";
 import {
+  GET_ALL_CONTACTS,
   GET_ALL_PRODUCTS,
   GET_ALL_RESERVATIONS,
   WHO_AM_I,
@@ -136,6 +137,13 @@ function AdminContent() {
   } = useQuery(GET_ALL_RESERVATIONS, {
     fetchPolicy: "network-only",
   });
+  const {
+    data: contactsData,
+    loading: loadingContacts,
+    error: contactsError,
+  } = useQuery(GET_ALL_CONTACTS, {
+    fetchPolicy: "cache-and-network",
+  });
   const [createProduct, { loading: creating }] = useMutation(CREATE_NEW_PRODUCT, {
     refetchQueries: [{ query: GET_ALL_PRODUCTS }],
   });
@@ -178,6 +186,7 @@ function AdminContent() {
       );
     }
   );
+  const contacts = contactsData?.getAllContacts ?? [];
 
   useEffect(() => {
     setStockInputs((current) => {
@@ -429,6 +438,7 @@ function AdminContent() {
         </p>
         <div className="admin-shortcuts">
           <a href="#commandes-clients">Reservations</a>
+          <a href="#messages-clients">Messages</a>
           <Link href="/admin-commandes-traitees">Commandes traitees</Link>
           <a href="#gestion-produits">Produits</a>
           <Link href="/inscription-administrateur">Nouvel admin</Link>
@@ -676,6 +686,47 @@ function AdminContent() {
             );
           })}
         </div>
+      </section>
+
+      <section className="admin-panel admin-messages" id="messages-clients">
+        <div className="admin-section-heading">
+          <div>
+            <p className="shop-kicker">Contact</p>
+            <h2>Messages clients</h2>
+          </div>
+          <strong>{contacts.length} message(s)</strong>
+        </div>
+        {loadingContacts && !contacts.length && <p>Chargement des messages...</p>}
+        {contactsError && <p>Impossible de charger les messages clients.</p>}
+        {!loadingContacts && !contacts.length && (
+          <p>Aucun message client pour le moment.</p>
+        )}
+        {contacts.length > 0 && (
+          <div className="admin-message-list">
+            {contacts.map((contact: any) => (
+              <article className="admin-message-card" key={contact.id}>
+                <div>
+                  <span className="admin-mini-label">Client</span>
+                  <strong>
+                    {contact.name} {contact.lastname}
+                  </strong>
+                  <a href={`mailto:${contact.email}`}>{contact.email}</a>
+                  <a
+                    className="gmail-reply-button"
+                    href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+                      contact.email
+                    )}&su=${encodeURIComponent("Reponse BeautyPlace")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Repondre avec Gmail
+                  </a>
+                </div>
+                <p>{contact.message}</p>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="admin-layout" id="gestion-produits">

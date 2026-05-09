@@ -25,11 +25,17 @@ function PanierContent() {
   const [removingArticleId, setRemovingArticleId] = useState<string | null>(null);
   const pendingArticleIds = useRef<Set<string>>(new Set());
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
-    fetchPolicy: "network-only",
+    fetchPolicy: "cache-and-network",
+    nextFetchPolicy: "cache-first",
+    notifyOnNetworkStatusChange: false,
   });
   const { data, loading, error, refetch } = useQuery(
     GET_CURRENT_RESERVATION_BY_USER_ID,
-    { fetchPolicy: "network-only" }
+    {
+      fetchPolicy: "cache-and-network",
+      nextFetchPolicy: "cache-first",
+      notifyOnNetworkStatusChange: false,
+    }
   );
   const [deleteArticleFromReservation] = useMutation(DELETE_ARTICLE_FROM_RESERVATION, {
     refetchQueries: [
@@ -123,7 +129,7 @@ function PanierContent() {
 
       <div className="shop-message-slot">
         {message && <p className="shop-message">{message}</p>}
-        {(loading || loadingUser) && (
+        {(loading || loadingUser) && !reservation && (
           <p className="shop-message">Chargement du panier...</p>
         )}
         {error && <p className="shop-message">Impossible de charger le panier.</p>}

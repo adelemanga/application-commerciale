@@ -4,6 +4,8 @@ import { useRouter } from "next/router";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import MondialRelayPicker from "@/components/MondialRelayPicker";
 import client from "../graphql/client";
 import {
   CONFIRM_STRIPE_CHECKOUT_SESSION,
@@ -251,20 +253,28 @@ function PaiementCarteContent() {
             </div>
 
             {deliveryMethod === "home" && (
-              <label className="checkout-wide-field">
-                Adresse de livraison
-                <textarea
+              <div className="checkout-wide-field">
+                <AddressAutocomplete
                   required
+                  label="Adresse de livraison"
                   name="address"
-                  placeholder="Votre adresse complete"
                   value={customerAddress}
-                  onChange={(event) => setCustomerAddress(event.target.value)}
+                  onChange={setCustomerAddress}
+                  placeholder="Region, ville, code postal, rue ou adresse complete"
                 />
-              </label>
+              </div>
             )}
 
             {deliveryMethod === "relay" && (
               <>
+                <div className="checkout-wide-field">
+                  <MondialRelayPicker
+                    onSelect={(name, address) => {
+                      setRelayName(name);
+                      setRelayAddress(address);
+                    }}
+                  />
+                </div>
                 <label>
                   Nom du point relais
                   <input
@@ -275,16 +285,16 @@ function PaiementCarteContent() {
                     onChange={(event) => setRelayName(event.target.value)}
                   />
                 </label>
-                <label>
-                  Adresse du point relais
-                  <input
+                <div className="relay-address-field">
+                  <AddressAutocomplete
                     required
+                    label="Adresse du point relais"
                     name="relayAddress"
-                    placeholder="Adresse du relais"
                     value={relayAddress}
-                    onChange={(event) => setRelayAddress(event.target.value)}
+                    onChange={setRelayAddress}
+                    placeholder="Ville, code postal ou adresse du relais"
                   />
-                </label>
+                </div>
               </>
             )}
 

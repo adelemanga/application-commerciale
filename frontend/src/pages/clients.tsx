@@ -318,9 +318,17 @@ function ClientsContent() {
                 ))}
               </ul>
               <p className="order-total">Total : {formatPrice(totalPrice)}</p>
+              <Link className="cart-link" href="/panier">
+                Acceder au panier
+              </Link>
             </>
           ) : (
-            <p>Aucun produit dans la commande pour le moment.</p>
+            <>
+              <p>Aucun produit dans la commande pour le moment.</p>
+              <Link className="cart-link" href="/panier">
+                Voir mon panier
+              </Link>
+            </>
           )}
         </aside>
       </section>
@@ -339,10 +347,7 @@ function ClientsContent() {
                         "fr-FR"
                       )}
                     </strong>
-                    <p>
-                      Statut : {item.reservation.status} - Total :{" "}
-                      {item.totalPrice} EUR
-                    </p>
+                    <p>Statut : {item.reservation.status}</p>
                     {item.reservation.status !== "pending" && (
                       <Link href={`/suivi-commandes?commande=${item.reservation.id}`}>
                         Voir le recu et le suivi
@@ -361,6 +366,9 @@ function ClientsContent() {
                       </li>
                     ))}
                   </ul>
+                  <p className="client-history-total">
+                    Total commande : <strong>{formatPrice(item.totalPrice)}</strong>
+                  </p>
                 </div>
               ))}
             </div>
