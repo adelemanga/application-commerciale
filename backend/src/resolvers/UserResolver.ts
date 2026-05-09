@@ -1,4 +1,11 @@
-import { Mutation, Arg, Query, Ctx, ObjectType, Field } from "type-graphql";
+import {
+  Mutation,
+  Arg,
+  Query,
+  Ctx,
+  ObjectType,
+  Field,
+} from "type-graphql";
 import bcrypt from "bcryptjs";
 import { Role, User } from "../entities/User";
 import jwt from "jsonwebtoken";
@@ -45,13 +52,14 @@ export class UserResolver {
   ) {
     const secret = process.env.JWT_SECRET_KEY;
     if (!secret) throw new Error("NO JWT SECRET KEY DEFINED");
+    const normalizedEmail = emailFromClient.trim().toLowerCase();
 
     const userFromDB = await User.findOneByOrFail({
-      email: emailFromClient,
+      email: normalizedEmail,
     });
 
     const isPasswordCorrect = await bcrypt.compare(
-      passwordFromClient,
+      passwordFromClient.trim(),
       userFromDB.hashedPassword
     );
 
@@ -114,8 +122,13 @@ export class UserResolver {
         context,
         Role.User
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err?.message === "Bad Role") {
+        throw new Error(
+          "Ce compte est un administrateur. Connectez-vous sur la page administrateur."
+        );
+      }
       throw new Error("Connexion client refusee");
     }
   }
@@ -133,8 +146,13 @@ export class UserResolver {
         context,
         Role.Admin
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err?.message === "Bad Role") {
+        throw new Error(
+          "Ce compte est un compte client. Connectez-vous sur la page client."
+        );
+      }
       throw new Error("Connexion administrateur refusee");
     }
   }
@@ -153,20 +171,25 @@ export class UserResolver {
     const secret = process.env.JWT_SECRET_KEY;
     if (!secret) throw new Error("NO JWT SECRET KEY DEFINED");
 
-    const existingUser = await User.findOneBy({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOneBy({ email: normalizedEmail });
     if (existingUser) {
-      throw new Error("Un compte existe deja avec cet email.");
+      throw new Error(
+        existingUser.role === Role.Admin
+          ? "Cet email est deja utilise par un compte administrateur. Utilisez un autre email pour creer un compte client."
+          : "Un compte client existe deja avec cet email. Connectez-vous avec ce compte."
+      );
     }
 
     // HASH PASSWORD (bcrypt FIX IMPORTANT)
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
 
     const userFromDB = await User.save({
-      email,
-      firstname,
-      lastname,
-      phone,
-      address,
+      email: normalizedEmail,
+      firstname: firstname.trim(),
+      lastname: lastname.trim(),
+      phone: phone?.trim(),
+      address: address?.trim(),
       avatarUrl,
       hashedPassword,
     });
@@ -186,6 +209,63 @@ export class UserResolver {
     return token;
   }
 
+  @Mutation(() => String)
+  async createAdmin(
+    @Arg("email") email: string,
+    @Arg("firstname") firstname: string,
+    @Arg("lastname") lastname: string,
+    @Arg("password") password: string,
+    @Arg("adminCode", { nullable: true }) adminCode: string,
+    @Ctx() context: any
+  ) {
+    const secret = process.env.JWT_SECRET_KEY;
+    if (!secret) throw new Error("NO JWT SECRET KEY DEFINED");
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOneBy({ email: normalizedEmail });
+    if (existingUser) {
+      throw new Error("Un compte existe deja avec cet email.");
+    }
+
+    const adminCount = await User.countBy({ role: Role.Admin });
+    const setupCode = process.env.ADMIN_REGISTRATION_CODE;
+    const isCurrentUserAdmin = context.role === Role.Admin;
+    const isFirstAdmin = adminCount === 0;
+    const hasValidSetupCode = Boolean(
+      setupCode && adminCode?.trim() === setupCode.trim()
+    );
+
+    if (!isFirstAdmin && !isCurrentUserAdmin && !hasValidSetupCode) {
+      throw new Error(
+        "Inscription administrateur refusee. Connectez-vous en admin ou utilisez le code administrateur."
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
+
+    const adminFromDB = await User.save({
+      email: normalizedEmail,
+      firstname: firstname.trim(),
+      lastname: lastname.trim(),
+      hashedPassword,
+      role: Role.Admin,
+    });
+
+    const token = jwt.sign(
+      {
+        id: adminFromDB.id,
+        email: adminFromDB.email,
+        role: adminFromDB.role,
+      },
+      secret,
+      { expiresIn: "7d" }
+    );
+
+    context.res.setHeader("Set-Cookie", buildAuthCookie(token));
+
+    return token;
+  }
+
   // =========================
   // WHO AM I
   // =========================
@@ -195,7 +275,11 @@ export class UserResolver {
       return { isLoggedIn: false };
     }
 
-    const user = await User.findOneByOrFail({ id: context.id });
+    const user = await User.findOneBy({ id: context.id });
+
+    if (!user) {
+      return { isLoggedIn: false };
+    }
 
     return {
       isLoggedIn: true,

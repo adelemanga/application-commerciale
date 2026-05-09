@@ -17,6 +17,7 @@ export enum ReservationStatus {
   Submitted = "submitted",
   Validated = "validated",
   Ongoing = "ongoing",
+  Shipped = "shipped",
   Ended = "ended",
 }
 
@@ -60,6 +61,18 @@ export class Reservation extends BaseEntity {
   @Field({ nullable: true })
   @Column({ nullable: true })
   paymentMethod?: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  stripeSessionId?: string;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: "varchar", nullable: true })
+  shippingCarrier?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: "varchar", nullable: true })
+  trackingNumber?: string | null;
 
   @Field()
   @Column({ default: PaymentStatus.Pending })

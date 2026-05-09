@@ -28,7 +28,14 @@ function Contact() {
     e.preventDefault();
 
     try {
-      await addContact({ variables: formData });
+      await addContact({
+        variables: {
+          name: formData.name.trim(),
+          lastname: formData.lastname.trim(),
+          email: formData.email.trim().toLowerCase(),
+          message: formData.message.trim(),
+        },
+      });
       setSuccessMessage("Votre message a été envoyé avec succès !");
       setFormData({ name: "", lastname: "", email: "", message: "" }); // Réinitialiser le formulaire
     } catch (err) {

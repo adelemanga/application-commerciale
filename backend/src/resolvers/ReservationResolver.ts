@@ -17,7 +17,12 @@ import {
 } from "type-graphql";
 import { calculateTotal } from "../../utils/reservation/CalculateTotal";
 import { Article } from "../entities/Article";
-import { sendOrderEmails } from "../services/orderEmail";
+import {
+  sendOrderEmails,
+  sendOrderReceivedEmail,
+  sendTrackingUpdateEmail,
+} from "../services/orderEmail";
+import axios from "axios";
 
 // custom object created to send the totalPrice along with the reservation data
 @ObjectType()
@@ -27,6 +32,12 @@ export class ReservationWithTotal {
 
   @Field(() => Number)
   totalPrice: number;
+}
+
+@ObjectType()
+class StripeCheckoutSession {
+  @Field()
+  url: string;
 }
 
 @InputType()
@@ -48,7 +59,10 @@ export class ReservationResolver {
     const reservations = await Reservation.find({
       relations: ["user", "articles", "articles.product"],
     });
-    return reservations;
+    return reservations.filter(
+      (reservation) =>
+        reservation.articles.length > 0 && calculateTotal(reservation.articles) > 0
+    );
   }
 
   @Query(() => Reservation)
@@ -169,7 +183,10 @@ export class ReservationResolver {
 
       await reservation.save();
     }
-    return reservation;
+    return Reservation.findOneOrFail({
+      where: { id: reservation.id },
+      relations: ["user", "articles", "articles.product"],
+    });
   }
 
   @Mutation(() => Reservation)
@@ -213,6 +230,141 @@ export class ReservationResolver {
     return reservation;
   }
 
+  @Mutation(() => StripeCheckoutSession)
+  async createStripeCheckoutSession(
+    @Ctx() context: Context,
+    @Arg("reservationId", () => ID) reservationId: string,
+    @Arg("customerPhone") customerPhone: string,
+    @Arg("customerAddress") customerAddress: string
+  ) {
+    if (!context.id) {
+      throw new Error("User not authenticated");
+    }
+
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      throw new Error("Stripe is not configured");
+    }
+
+    const reservation = await Reservation.findOne({
+      where: {
+        id: reservationId,
+        user: { id: context.id },
+      },
+      relations: ["user", "articles", "articles.product"],
+    });
+
+    if (!reservation || reservation.articles.length === 0) {
+      throw new Error("Reservation not found");
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3002";
+    const params = new URLSearchParams();
+    params.append("mode", "payment");
+    params.append("success_url", `${frontendUrl}/panier?session_id={CHECKOUT_SESSION_ID}`);
+    params.append("cancel_url", `${frontendUrl}/panier?payment=cancelled`);
+    params.append("customer_email", reservation.user.email);
+    params.append("metadata[reservationId]", reservation.id);
+
+    reservation.articles.forEach((article, index) => {
+      params.append(`line_items[${index}][quantity]`, "1");
+      params.append(
+        `line_items[${index}][price_data][currency]`,
+        "eur"
+      );
+      params.append(
+        `line_items[${index}][price_data][unit_amount]`,
+        String(Math.round(article.product.price * 100))
+      );
+      params.append(
+        `line_items[${index}][price_data][product_data][name]`,
+        article.product.name
+      );
+      params.append(
+        `line_items[${index}][price_data][product_data][description]`,
+        article.product.description ?? "Produit beaute"
+      );
+    });
+
+    const response = await axios.post(
+      "https://api.stripe.com/v1/checkout/sessions",
+      params,
+      {
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
+
+    reservation.customerPhone = customerPhone;
+    reservation.customerAddress = customerAddress;
+    reservation.paymentMethod = "card";
+    reservation.paymentStatus = PaymentStatus.Pending;
+    reservation.stripeSessionId = response.data.id;
+    await reservation.save();
+
+    return { url: response.data.url };
+  }
+
+  @Mutation(() => Reservation)
+  async confirmStripeCheckoutSession(
+    @Ctx() context: Context,
+    @Arg("sessionId") sessionId: string
+  ) {
+    if (!context.id) {
+      throw new Error("User not authenticated");
+    }
+
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      throw new Error("Stripe is not configured");
+    }
+
+    const response = await axios.get(
+      `https://api.stripe.com/v1/checkout/sessions/${sessionId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+        },
+      }
+    );
+
+    const reservationId = response.data.metadata?.reservationId;
+    const reservation = await Reservation.findOne({
+      where: {
+        id: reservationId,
+        user: { id: context.id },
+      },
+      relations: ["user", "articles", "articles.product"],
+    });
+
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    if (response.data.payment_status !== "paid") {
+      throw new Error("Payment not completed");
+    }
+
+    reservation.status = ReservationStatus.Submitted;
+    reservation.paymentMethod = "card";
+    reservation.paymentStatus = PaymentStatus.Paid;
+    reservation.stripeSessionId = sessionId;
+    await reservation.save();
+
+    try {
+      await sendOrderEmails(reservation);
+    } catch (error) {
+      console.warn(
+        "Commande payee, mais email non envoye. Verifiez la configuration Gmail.",
+        error
+      );
+    }
+
+    return reservation;
+  }
+
   @Mutation(() => Reservation)
   async updateReservationStatus(
     @Arg("reservationId", () => ID) reservationId: string
@@ -234,10 +386,15 @@ export class ReservationResolver {
   async updateReservationAdmin(
     @Arg("reservationId", () => ID) reservationId: string,
     @Arg("status") status: string,
-    @Arg("paymentStatus") paymentStatus: string
+    @Arg("paymentStatus") paymentStatus: string,
+    @Arg("shippingCarrier", () => String, { nullable: true })
+    shippingCarrier?: string,
+    @Arg("trackingNumber", () => String, { nullable: true })
+    trackingNumber?: string
   ) {
     const reservation = await Reservation.findOne({
       where: { id: reservationId },
+      relations: { user: true, articles: { product: true } },
     });
 
     if (!reservation) {
@@ -252,9 +409,35 @@ export class ReservationResolver {
       throw new Error("Invalid payment status");
     }
 
-    reservation.status = status as ReservationStatus;
+    const isOnlinePaid =
+      reservation.paymentMethod === "card" &&
+      (paymentStatus as PaymentStatus) === PaymentStatus.Paid &&
+      Boolean(reservation.stripeSessionId);
+
+    const nextStatus =
+      !isOnlinePaid && (paymentStatus as PaymentStatus) === PaymentStatus.Paid
+        ? ReservationStatus.Ended
+        : (status as ReservationStatus);
+
+    if (nextStatus === ReservationStatus.Shipped && !isOnlinePaid) {
+      throw new Error(
+        "Seules les commandes payees en ligne peuvent etre marquees comme colis envoye."
+      );
+    }
+
+    reservation.status = nextStatus;
     reservation.paymentStatus = paymentStatus as PaymentStatus;
+    reservation.shippingCarrier = isOnlinePaid ? shippingCarrier?.trim() || null : null;
+    reservation.trackingNumber = isOnlinePaid ? trackingNumber?.trim() || null : null;
     await reservation.save();
+
+    if (reservation.status === ReservationStatus.Shipped && reservation.trackingNumber) {
+      try {
+        await sendTrackingUpdateEmail(reservation);
+      } catch (error) {
+        console.error("Erreur email suivi colis:", error);
+      }
+    }
 
     return reservation;
   }
@@ -274,6 +457,77 @@ export class ReservationResolver {
     await reservation.save();
 
     return reservation;
+  }
+
+  @Mutation(() => Reservation)
+  async confirmReservationReceived(
+    @Ctx() context: Context,
+    @Arg("reservationId", () => ID) reservationId: string
+  ) {
+    if (!context.id) {
+      throw new Error("User not authenticated");
+    }
+
+    const reservation = await Reservation.findOne({
+      where: {
+        id: reservationId,
+        user: { id: context.id },
+      },
+      relations: ["user", "articles", "articles.product"],
+    });
+
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    if (reservation.paymentMethod !== "card" || !reservation.stripeSessionId) {
+      throw new Error("Seuls les colis envoyes peuvent etre confirmes comme recus.");
+    }
+
+    if (reservation.status !== ReservationStatus.Shipped) {
+      throw new Error("Le colis doit etre marque comme envoye avant confirmation.");
+    }
+
+    reservation.status = ReservationStatus.Ended;
+    await reservation.save();
+
+    try {
+      await sendOrderReceivedEmail(reservation);
+    } catch (error) {
+      console.warn(
+        "Reception confirmee, mais email admin non envoye. Verifiez Gmail.",
+        error
+      );
+    }
+
+    return reservation;
+  }
+
+  @Mutation(() => Boolean)
+  async deleteTreatedReservationAdmin(
+    @Arg("reservationId", () => ID) reservationId: string
+  ) {
+    const reservation = await Reservation.findOne({
+      where: { id: reservationId },
+      relations: ["articles"],
+    });
+
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    const isTreatedPickup =
+      reservation.paymentStatus === PaymentStatus.Paid && !reservation.stripeSessionId;
+
+    if (reservation.status !== ReservationStatus.Ended && !isTreatedPickup) {
+      throw new Error("Seules les commandes traitees peuvent etre supprimees.");
+    }
+
+    reservation.articles = [];
+    await reservation.save();
+    await reservation.remove();
+
+    return true;
   }
 }
 

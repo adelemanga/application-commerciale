@@ -25,8 +25,61 @@ const getTransporter = () => {
   });
 };
 
-const buildOrderHtml = (reservation: Reservation) => {
+const getTrackingUrl = (
+  carrier?: string | null,
+  trackingNumber?: string | null
+) => {
+  if (!carrier || !trackingNumber) return "";
+
+  const normalizedCarrier = carrier.toLowerCase();
+  const encodedNumber = encodeURIComponent(trackingNumber);
+
+  if (normalizedCarrier.includes("poste") || normalizedCarrier.includes("colissimo")) {
+    return `https://www.laposte.fr/outils/suivre-vos-envois?code=${encodedNumber}`;
+  }
+
+  if (normalizedCarrier.includes("chronopost")) {
+    return `https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLT=${encodedNumber}`;
+  }
+
+  if (normalizedCarrier.includes("dhl")) {
+    return `https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${encodedNumber}`;
+  }
+
+  if (normalizedCarrier.includes("ups")) {
+    return `https://www.ups.com/track?tracknum=${encodedNumber}`;
+  }
+
+  return "";
+};
+
+const buildOrderHtml = (reservation: Reservation, variant: "admin" | "client") => {
   const total = calculateTotal(reservation.articles ?? []);
+  const trackingUrl = getTrackingUrl(
+    reservation.shippingCarrier,
+    reservation.trackingNumber
+  );
+  const trackingHtml = reservation.trackingNumber
+    ? `
+      <p><strong>Transporteur :</strong> ${
+        reservation.shippingCarrier || "A definir"
+      }</p>
+      <p><strong>Numero de suivi :</strong> ${reservation.trackingNumber}</p>
+      ${
+        trackingUrl
+          ? `<p><a href="${trackingUrl}" style="color:#5e2f4f;font-weight:bold;">Suivre le colis</a></p>`
+          : ""
+      }
+    `
+    : "";
+  const title =
+    variant === "admin"
+      ? "Nouvelle commande Beauty Place"
+      : "Votre recu de commande Beauty Place";
+  const intro =
+    variant === "admin"
+      ? "Une nouvelle commande vient d'etre envoyee a l'administration."
+      : "Merci pour votre commande. Voici votre recu avec le recapitulatif de facturation.";
   const products = reservation.articles
     .map(
       (article) => `
@@ -44,7 +97,8 @@ const buildOrderHtml = (reservation: Reservation) => {
 
   return `
     <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
-      <h1 style="color:#5e2f4f;">Nouvelle commande Beauty Place</h1>
+      <h1 style="color:#5e2f4f;">${title}</h1>
+      <p>${intro}</p>
       <p><strong>Commande :</strong> #${reservation.id}</p>
       <p><strong>Client :</strong> ${reservation.user?.firstname ?? ""} ${
     reservation.user?.lastname ?? ""
@@ -63,6 +117,7 @@ const buildOrderHtml = (reservation: Reservation) => {
           ? "Carte bancaire"
           : "Paiement sur place"
       } - ${reservation.paymentStatus === "paid" ? "paye" : "a payer"}</p>
+      ${trackingHtml}
       <table style="width:100%;border-collapse:collapse;margin:18px 0;">
         <thead>
           <tr>
@@ -73,6 +128,10 @@ const buildOrderHtml = (reservation: Reservation) => {
         <tbody>${products}</tbody>
       </table>
       <p style="font-size:18px;"><strong>Total :</strong> ${formatPrice(total)}</p>
+      <p style="margin-top:20px;color:#76636c;">
+        Conservez cet email comme justificatif. Le suivi est disponible dans
+        votre espace client, rubrique Suivi commandes.
+      </p>
     </div>
   `;
 };
@@ -90,20 +149,97 @@ export const sendOrderEmails = async (reservation: Reservation) => {
     return;
   }
 
-  const html = buildOrderHtml(reservation);
+  const adminHtml = buildOrderHtml(reservation, "admin");
+  const clientHtml = buildOrderHtml(reservation, "client");
   const subject = `Commande Beauty Place #${reservation.id}`;
 
   await transporter.sendMail({
     from,
     to: adminEmail,
     subject: `Nouvelle ${subject}`,
-    html,
+    html: adminHtml,
   });
 
   await transporter.sendMail({
     from,
     to: clientEmail,
-    subject: `Confirmation ${subject}`,
-    html,
+    subject: `Facture et confirmation ${subject}`,
+    html: clientHtml,
+  });
+};
+
+export const sendTrackingUpdateEmail = async (reservation: Reservation) => {
+  const transporter = getTransporter();
+  const from = process.env.GMAIL_USER;
+  const clientEmail = reservation.user?.email;
+  const trackingUrl = getTrackingUrl(
+    reservation.shippingCarrier,
+    reservation.trackingNumber
+  );
+
+  if (!transporter || !from || !clientEmail || !reservation.trackingNumber) {
+    console.warn(
+      "Email suivi non envoye: configurez Gmail et renseignez le numero de suivi."
+    );
+    return;
+  }
+
+  await transporter.sendMail({
+    from,
+    to: clientEmail,
+    subject: `Votre colis Beauty Place est envoye #${reservation.id}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
+        <h1 style="color:#5e2f4f;">Votre colis est envoye</h1>
+        <p>Votre commande Beauty Place #${reservation.id} a ete confiee au transporteur.</p>
+        <p><strong>Transporteur :</strong> ${
+          reservation.shippingCarrier || "A definir"
+        }</p>
+        <p><strong>Numero de suivi :</strong> ${reservation.trackingNumber}</p>
+        ${
+          trackingUrl
+            ? `<p><a href="${trackingUrl}" style="color:#5e2f4f;font-weight:bold;">Suivre mon colis</a></p>`
+            : ""
+        }
+        <p>Le recapitulatif reste disponible dans votre espace client, rubrique Suivi commandes.</p>
+      </div>
+    `,
+  });
+};
+
+export const sendOrderReceivedEmail = async (reservation: Reservation) => {
+  const transporter = getTransporter();
+  const from = process.env.GMAIL_USER;
+  const adminEmail = process.env.ADMIN_ORDER_EMAIL || from;
+  const clientName = `${reservation.user?.firstname ?? ""} ${
+    reservation.user?.lastname ?? ""
+  }`.trim();
+
+  if (!transporter || !from || !adminEmail) {
+    console.warn(
+      "Email reception non envoye: configurez GMAIL_USER, GMAIL_APP_PASSWORD et ADMIN_ORDER_EMAIL."
+    );
+    return;
+  }
+
+  await transporter.sendMail({
+    from,
+    to: adminEmail,
+    subject: `Commande recue par le client #${reservation.id}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
+        <h1 style="color:#5e2f4f;">Commande recue par le client</h1>
+        <p>Le client a confirme la reception de sa commande Beauty Place #${reservation.id}.</p>
+        <p><strong>Client :</strong> ${clientName || "Client"}</p>
+        <p><strong>Email :</strong> ${reservation.user?.email ?? ""}</p>
+        <p><strong>Transporteur :</strong> ${
+          reservation.shippingCarrier || "Non renseigne"
+        }</p>
+        <p><strong>Numero de suivi :</strong> ${
+          reservation.trackingNumber || "Non renseigne"
+        }</p>
+        <p>Cette commande peut etre consideree comme traitee.</p>
+      </div>
+    `,
   });
 };

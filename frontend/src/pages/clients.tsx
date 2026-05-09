@@ -1,4 +1,5 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -10,7 +11,7 @@ import {
   GET_RESERVATIONS_BY_USER_ID,
   WHO_AM_I,
 } from "../graphql/queries";
-import { Product } from "../interface/types";
+import { Product, Role } from "../interface/types";
 
 type ProductWithArticles = Product & {
   articles?: { id: string }[];
@@ -25,7 +26,7 @@ function ClientsContent() {
   const [likedProductIds, setLikedProductIds] = useState<string[]>([]);
 
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS);
-  const { data: userData } = useQuery(WHO_AM_I, {
+  const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
   });
   const { data: cartData, refetch: refetchCart } = useQuery(
@@ -48,6 +49,9 @@ function ClientsContent() {
     [data]
   );
   const user = userData?.whoAmI;
+  const isLoggedIn = Boolean(user?.isLoggedIn);
+  const isClient = isLoggedIn && user?.role === Role.User;
+  const isAdmin = isLoggedIn && user?.role === Role.Admin;
   const orderHistory = historyData?.getReservationsByUserId ?? [];
   const likedProducts = products.filter((product) =>
     likedProductIds.includes(product.id)
@@ -82,6 +86,12 @@ function ClientsContent() {
 
   const orderProduct = async (product: ProductWithArticles) => {
     setMessage("");
+
+    if (!isLoggedIn) {
+      setMessage("Connectez-vous ou creez un compte avant d'ajouter au panier.");
+      return;
+    }
+
     const articleId = product.articles?.[0]?.id;
 
     if (!articleId) {
@@ -112,20 +122,33 @@ function ClientsContent() {
 
   return (
     <main className="shop-page">
-      <section className="shop-hero">
-        <p className="shop-kicker">Espace clients</p>
-        <h1>
-          {user?.isLoggedIn
-            ? `Bonjour ${user.firstname || user.email}`
-            : "Commander des produits"}
-        </h1>
-        <p>
-          Retrouvez votre panier, vos commandes precedentes et vos produits
-          preferes dans votre espace client.
-        </p>
+      <section className={isClient ? "shop-hero client-welcome-hero" : "shop-hero"}>
+        {isClient && (
+          <img
+            className="client-welcome-avatar"
+            src={
+              user.avatarUrl ||
+              "https://img.freepik.com/premium-vector/default-avatar-profile-icon-social-media-user-image-gray-avatar-icon-blank-profile-silhouette-vector-illustration_561158-3383.jpg"
+            }
+            alt={`${user.firstname || "Client"} ${user.lastname || ""}`}
+          />
+        )}
+        <div>
+          <p className="shop-kicker">Espace clients</p>
+          <h1>
+            {isClient
+              ? `${user.firstname || "Client"} ${user.lastname || ""}`
+              : "Commander des produits"}
+          </h1>
+          <p>
+            {isClient
+              ? "Votre profil, vos reservations et vos produits preferes sont regroupes ici."
+              : "Connectez-vous avec un compte client pour voir votre profil et vos reservations."}
+          </p>
+        </div>
       </section>
 
-      {user?.isLoggedIn && (
+      {isClient && (
         <section className="client-profile-panel">
           <div className="client-profile-identity">
             <img
@@ -137,13 +160,13 @@ function ClientsContent() {
               alt={`${user.firstname || "Client"} ${user.lastname || ""}`}
             />
             <div>
-            <p className="shop-kicker">Profil connecte</p>
-            <h2>
-              {user.firstname} {user.lastname}
-            </h2>
-            <p>{user.email}</p>
-            {user.phone && <p>Telephone : {user.phone}</p>}
-            {user.address && <p>Adresse : {user.address}</p>}
+              <p className="shop-kicker">Profil connecte</p>
+              <h2>
+                {user.firstname} {user.lastname}
+              </h2>
+              <p>{user.email}</p>
+              {user.phone && <p>Telephone : {user.phone}</p>}
+              {user.address && <p>Adresse : {user.address}</p>}
             </div>
           </div>
           <div className="client-profile-stats">
@@ -153,6 +176,18 @@ function ClientsContent() {
           <div className="client-profile-stats">
             <strong>{likedProducts.length}</strong>
             <span>produit(s) like(s)</span>
+          </div>
+        </section>
+      )}
+
+      {isAdmin && (
+        <section className="shop-auth-callout">
+          <p>
+            Vous etes connectee avec un compte administrateur. Cette page est
+            reservee aux comptes clients.
+          </p>
+          <div>
+            <Link href="/admin">Aller a l'interface admin</Link>
           </div>
         </section>
       )}
@@ -181,6 +216,15 @@ function ClientsContent() {
       {message && <p className="shop-message">{message}</p>}
       {loading && <p className="shop-message">Chargement des produits...</p>}
       {error && <p className="shop-message">Impossible de charger les produits.</p>}
+
+      {!loadingUser && !isLoggedIn && (
+        <section className="shop-auth-callout">
+          <p>Pour commander un produit, connectez-vous ou creez un compte client.</p>
+          <div>
+            <Link href="/connexion-client">Connexion ou inscription</Link>
+          </div>
+        </section>
+      )}
 
       <section className="shop-layout">
         <div className="product-grid">
@@ -259,6 +303,11 @@ function ClientsContent() {
                       Statut : {item.reservation.status} - Total :{" "}
                       {item.totalPrice} EUR
                     </p>
+                    {item.reservation.status !== "pending" && (
+                      <Link href={`/suivi-commandes?commande=${item.reservation.id}`}>
+                        Voir le recu et le suivi
+                      </Link>
+                    )}
                   </div>
                   <ul>
                     {item.reservation.articles.map((article: any) => (

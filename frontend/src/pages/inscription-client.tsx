@@ -103,10 +103,10 @@ function InscriptionClientContent() {
     try {
       await createUser({
         variables: {
-          firstname,
-          lastname,
-          email,
-          phone,
+          firstname: firstname.trim(),
+          lastname: lastname.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
           address,
           avatarUrl,
           password,

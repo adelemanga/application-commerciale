@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
@@ -6,7 +7,6 @@ import { buildSchema } from "type-graphql";
 import ProductResolver from "./resolvers/ProductResolver";
 import ArticleResolver from "../src/resolvers/ArticleResolver";
 import UserResolver from "./resolvers/UserResolver";
-import "dotenv/config";
 import setCookieParser from "set-cookie-parser";
 import jwt from "jsonwebtoken";
 import ReservationResolver from "./resolvers/ReservationResolver";
@@ -80,12 +80,19 @@ const start = async () => {
       });
 
       if (cookies.token && cookies.token.value) {
-        const payload = jwt.verify(
-          cookies.token.value,
-          process.env.JWT_SECRET_KEY
-        ) as jwt.JwtPayload;
-        if (payload) {
-          return { ...payload, res: res };
+        try {
+          const payload = jwt.verify(
+            cookies.token.value,
+            process.env.JWT_SECRET_KEY
+          ) as jwt.JwtPayload;
+          if (payload) {
+            return { ...payload, res: res };
+          }
+        } catch {
+          res.setHeader(
+            "Set-Cookie",
+            "token=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/"
+          );
         }
       }
       return {
@@ -95,7 +102,7 @@ const start = async () => {
     })
   );
 
-  const port = Number(process.env.PORT) || 4003;
+  const port = Number(process.env.PORT) || 4004;
   await new Promise<void>((resolve) =>
     httpServer.listen({ port, host: "0.0.0.0" }, resolve)
   );
@@ -116,7 +123,7 @@ start();
 // import { db } from "./db";
 // import schemaPromise from "./schema";
 
-// const port = process.env.PORT || 4003;
+// const port = process.env.PORT || 4004;
 
 // const allowedOrigins =
 //   process.env.CORS_ALLOWED_ORIGINS || "http://localhost:3000";

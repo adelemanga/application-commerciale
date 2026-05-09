@@ -23,8 +23,8 @@ function ConnexionAdministrateurContent() {
     try {
       const result = await loginAdmin({
         variables: {
-          email,
-          password,
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
         },
       });
       if (result.error) {
@@ -32,9 +32,11 @@ function ConnexionAdministrateurContent() {
       }
       await client.refetchQueries({ include: [WHO_AM_I] });
       router.push("/admin");
-    } catch {
+    } catch (error: any) {
+      const errorMessage = error?.graphQLErrors?.[0]?.message;
       setMessage(
-        "Connexion administrateur refusee. Ce compte n'a pas les droits admin."
+        errorMessage ||
+          "Connexion administrateur refusee. Ce compte n'a pas les droits admin."
       );
     }
   };
@@ -72,6 +74,9 @@ function ConnexionAdministrateurContent() {
         </form>
         <Link className="auth-secondary-link" href="/admin">
           Ouvrir l'interface admin
+        </Link>
+        <Link className="auth-secondary-link" href="/inscription-administrateur">
+          Inscrire un administrateur
         </Link>
       </section>
     </main>

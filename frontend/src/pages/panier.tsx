@@ -1,11 +1,14 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import client from "../graphql/client";
 import {
   CANCEL_RESERVATION,
+  CONFIRM_STRIPE_CHECKOUT_SESSION,
+  CREATE_STRIPE_CHECKOUT_SESSION,
   DELETE_ARTICLE_FROM_RESERVATION,
   SUBMIT_RESERVATION_TO_ADMIN,
 } from "../graphql/mutations";
@@ -21,73 +24,12 @@ const formatPrice = (price?: number) =>
     currency: "EUR",
   }).format(price ?? 0);
 
-const formatCardNumber = (value: string) =>
-  value
-    .replace(/\D/g, "")
-    .slice(0, 16)
-    .replace(/(.{4})/g, "$1 ")
-    .trim();
-
-const formatCardExpiry = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 4);
-
-  if (digits.length <= 2) {
-    return digits;
-  }
-
-  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-};
-
-const isValidCardNumber = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  let sum = 0;
-  let shouldDouble = false;
-
-  if (digits.length < 13 || digits.length > 16) {
-    return false;
-  }
-
-  for (let index = digits.length - 1; index >= 0; index -= 1) {
-    let digit = Number(digits[index]);
-
-    if (shouldDouble) {
-      digit *= 2;
-      if (digit > 9) digit -= 9;
-    }
-
-    sum += digit;
-    shouldDouble = !shouldDouble;
-  }
-
-  return sum % 10 === 0;
-};
-
-const isValidExpiry = (value: string) => {
-  const [monthValue, yearValue] = value.split("/");
-  const month = Number(monthValue);
-  const year = Number(`20${yearValue}`);
-
-  if (!month || month < 1 || month > 12 || !yearValue || yearValue.length !== 2) {
-    return false;
-  }
-
-  const expiryDate = new Date(year, month);
-  const today = new Date();
-  const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-  return expiryDate > currentMonth;
-};
-
 function PanierContent() {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("card");
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-  const [paymentNotice, setPaymentNotice] = useState("");
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
   });
@@ -119,6 +61,17 @@ function PanierContent() {
       ],
     }
   );
+  const [createStripeCheckoutSession, { loading: redirectingToStripe }] =
+    useMutation(CREATE_STRIPE_CHECKOUT_SESSION);
+  const [confirmStripeCheckoutSession] = useMutation(
+    CONFIRM_STRIPE_CHECKOUT_SESSION,
+    {
+      refetchQueries: [
+        { query: GET_CURRENT_RESERVATION_BY_USER_ID },
+        { query: GET_RESERVATIONS_BY_USER_ID },
+      ],
+    }
+  );
 
   const reservation = data?.getCurrentReservationByUserId?.reservation;
   const totalPrice = data?.getCurrentReservationByUserId?.totalPrice ?? 0;
@@ -126,6 +79,38 @@ function PanierContent() {
   const isLoggedIn = userData?.whoAmI?.isLoggedIn;
   const userPhone = userData?.whoAmI?.phone ?? "";
   const userAddress = userData?.whoAmI?.address ?? "";
+
+  useEffect(() => {
+    const sessionId = router.query.session_id;
+    const payment = router.query.payment;
+
+    if (payment === "cancelled") {
+      setMessage("Paiement annule. Votre panier est toujours disponible.");
+      router.replace("/panier", undefined, { shallow: true });
+      return;
+    }
+
+    if (typeof sessionId !== "string") {
+      return;
+    }
+
+    const confirmPayment = async () => {
+      try {
+        const response = await confirmStripeCheckoutSession({
+          variables: { sessionId },
+        });
+        const reservationId = response.data?.confirmStripeCheckoutSession?.id;
+        setMessage("Paiement Stripe confirme. Votre recu est disponible.");
+        router.replace(
+          reservationId ? `/suivi-commandes?commande=${reservationId}` : "/suivi-commandes"
+        );
+      } catch {
+        setMessage("Paiement non confirme par Stripe. Verifiez la transaction.");
+      }
+    };
+
+    confirmPayment();
+  }, [confirmStripeCheckoutSession, refetch, router]);
 
   const removeArticle = async (articleId: string) => {
     setMessage("");
@@ -163,29 +148,34 @@ function PanierContent() {
     }
 
     if (paymentMethod === "card") {
-      const cleanCardNumber = cardNumber.replace(/\s/g, "");
+      try {
+        const response = await createStripeCheckoutSession({
+          variables: {
+            reservationId: reservation.id,
+            customerPhone: phoneToSend,
+            customerAddress: addressToSend,
+          },
+        });
+        const checkoutUrl = response.data?.createStripeCheckoutSession?.url;
 
-      if (!cardName.trim()) {
-        setMessage("Ajoutez le nom indique sur la carte.");
-        return;
+        if (!checkoutUrl) {
+          throw new Error("Stripe checkout URL missing");
+        }
+
+        window.location.href = checkoutUrl;
+      } catch (error: any) {
+        const stripeMessage =
+          error?.graphQLErrors?.[0]?.message ||
+          error?.networkError?.message ||
+          error?.message;
+
+        setMessage(
+          stripeMessage
+            ? `Paiement Stripe impossible : ${stripeMessage}`
+            : "Impossible d'ouvrir le paiement Stripe. Verifiez les cles Stripe."
+        );
       }
-
-      if (!isValidCardNumber(cardNumber)) {
-        setMessage("Numero de carte invalide. Pour tester, utilisez 4242 4242 4242 4242.");
-        return;
-      }
-
-      if (!isValidExpiry(cardExpiry)) {
-        setMessage("Date d'expiration invalide.");
-        return;
-      }
-
-      if (!/^\d{3,4}$/.test(cardCvc.trim())) {
-        setMessage("CVC invalide.");
-        return;
-      }
-
-      setPaymentNotice(`Carte test terminee par ${cleanCardNumber.slice(-4)} acceptee.`);
+      return;
     }
 
     try {
@@ -199,14 +189,9 @@ function PanierContent() {
       });
       await refetch();
       setMessage(
-        paymentMethod === "card"
-          ? "Paiement carte accepte. La commande est envoyee a l'administrateur."
-          : "Commande envoyee. Le paiement se fera sur place."
+        "Commande envoyee. Le paiement se fera sur place."
       );
-      setCardName("");
-      setCardNumber("");
-      setCardExpiry("");
-      setCardCvc("");
+      router.push(`/suivi-commandes?commande=${reservation.id}`);
     } catch {
       setMessage("Impossible d'envoyer la commande a l'administrateur.");
     }
@@ -301,80 +286,29 @@ function PanierContent() {
               </div>
               {paymentMethod === "card" ? (
                 <>
-                  <label>
-                    Nom sur la carte
-                    <input
-                      required
-                      autoComplete="cc-name"
-                      placeholder="ADELE MANGA"
-                      value={cardName}
-                      onChange={(event) => setCardName(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Numero de carte
-                    <input
-                      required
-                      autoComplete="cc-number"
-                      inputMode="numeric"
-                      placeholder="4242 4242 4242 4242"
-                      value={cardNumber}
-                      onChange={(event) =>
-                        setCardNumber(formatCardNumber(event.target.value))
-                      }
-                    />
-                  </label>
-                  <div className="payment-row">
-                    <label>
-                      Expiration
-                      <input
-                        required
-                        autoComplete="cc-exp"
-                        inputMode="numeric"
-                        placeholder="MM/AA"
-                        value={cardExpiry}
-                        onChange={(event) =>
-                          setCardExpiry(formatCardExpiry(event.target.value))
-                        }
-                      />
-                    </label>
-                    <label>
-                      CVC
-                      <input
-                        required
-                        autoComplete="cc-csc"
-                        inputMode="numeric"
-                        placeholder="123"
-                        value={cardCvc}
-                        onChange={(event) =>
-                          setCardCvc(event.target.value.replace(/\D/g, "").slice(0, 4))
-                        }
-                      />
-                    </label>
-                  </div>
-                  {paymentNotice && (
-                    <p className="payment-success">{paymentNotice}</p>
-                  )}
                   <p>
-                    Paiement carte en mode test. Aucun debit bancaire reel.
-                    Carte de test : 4242 4242 4242 4242.
+                    Le paiement par carte se fait sur la page securisee Stripe.
+                    Aucune donnee bancaire n'est saisie ni stockee sur ce site.
                   </p>
                 </>
               ) : (
-                <p>Le client reglera directement sur place. La commande sera marquee a payer.</p>
+                <p>
+                  Reservation pour retrait boutique : aucun colis ne sera envoye.
+                  Le paiement se fera uniquement sur place.
+                </p>
               )}
             </div>
             <button
               type="button"
               className="cart-submit-button"
-              disabled={submitting}
+              disabled={submitting || redirectingToStripe}
               onClick={sendOrderToAdmin}
             >
-              {submitting
+              {submitting || redirectingToStripe
                 ? "Validation en cours..."
                 : paymentMethod === "card"
-                  ? `Payer ${formatPrice(totalPrice)} et envoyer`
-                  : "Envoyer et payer sur place"}
+                  ? `Payer ${formatPrice(totalPrice)} avec Stripe`
+                  : "Reserver et payer sur place"}
             </button>
             <Link href="/produits">Continuer mes achats</Link>
           </aside>

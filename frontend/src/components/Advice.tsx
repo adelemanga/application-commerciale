@@ -6,6 +6,39 @@ import { GET_ALL_ADVICES } from "../graphql/queries";
 const DEFAULT_ADVICE_IMAGE =
   "https://img.freepik.com/premium-vector/default-image-icon-vector-missing-picture-page-website-design-mobile-app-no-photo-available_87543-11093.jpg";
 
+const resizeAdvicePhoto = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const size = 320;
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        if (!context) {
+          reject(new Error("Canvas unavailable"));
+          return;
+        }
+
+        const scale = Math.max(size / image.width, size / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        const x = (size - width) / 2;
+        const y = (size - height) / 2;
+
+        canvas.width = size;
+        canvas.height = size;
+        context.drawImage(image, x, y, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      };
+      image.onerror = reject;
+      image.src = String(reader.result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
 function Advice() {
   const [formData, setFormData] = useState({
     name: "",
@@ -55,13 +88,11 @@ function Advice() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setImageURL(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    resizeAdvicePhoto(file)
+      .then(setImageURL)
+      .catch(() => {
+        setSuccessMessage("Impossible de lire cette image.");
+      });
   };
 
   // Soumission du formulaire
@@ -71,6 +102,10 @@ function Advice() {
     // Mettre à jour formData avec l'URL de l'image téléchargée
     const formDataWithImg = {
       ...formData,
+      name: formData.name.trim(),
+      lastname: formData.lastname.trim(),
+      message: formData.message.trim(),
+      title: formData.title.trim(),
       imgUrl: imageURL || DEFAULT_ADVICE_IMAGE,
     };
 

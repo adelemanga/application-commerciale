@@ -100,6 +100,444 @@ h1 {
   font-family: "Didot", Georgia, "Times New Roman", serif;
 }
 
+/* Chatbot */
+.chatbot {
+  position: fixed;
+  right: clamp(14px, 3vw, 28px);
+  bottom: clamp(14px, 3vw, 28px);
+  z-index: 60;
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+}
+
+.chatbot-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 17px;
+  color: #ffffff;
+  background: var(--plum);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  box-shadow: 0 18px 36px rgba(94, 47, 79, 0.26);
+  font-weight: 850;
+}
+
+.chatbot-panel {
+  width: min(360px, calc(100vw - 28px));
+  overflow: hidden;
+  background: rgba(255, 250, 244, 0.98);
+  border: 1px solid rgba(94, 47, 79, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 22px 60px rgba(48, 30, 40, 0.2);
+}
+
+.chatbot-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--plum), var(--rose));
+}
+
+.chatbot-header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 900;
+}
+
+.chatbot-header p {
+  margin: 5px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.82rem;
+}
+
+.chatbot-header button {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.chatbot-messages {
+  max-height: 250px;
+  overflow-y: auto;
+  display: grid;
+  gap: 9px;
+  padding: 15px;
+}
+
+.chatbot-message {
+  width: fit-content;
+  max-width: 88%;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.chatbot-message.bot {
+  color: var(--ink);
+  background: var(--champagne);
+}
+
+.chatbot-message.user {
+  justify-self: end;
+  color: #ffffff;
+  background: var(--rose);
+}
+
+.chatbot-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 0 15px 12px;
+}
+
+.chatbot-quick-actions button {
+  min-height: 32px;
+  padding: 7px 10px;
+  color: var(--plum);
+  background: #ffffff;
+  border: 1px solid rgba(184, 95, 122, 0.22);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.chatbot-form {
+  display: grid;
+  grid-template-columns: 1fr 42px;
+  gap: 8px;
+  padding: 12px 15px 10px;
+  border-top: 1px solid rgba(94, 47, 79, 0.1);
+}
+
+.chatbot-form input {
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.16);
+  border-radius: 6px;
+}
+
+.chatbot-form button {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: var(--plum);
+}
+
+.chatbot-contact-link {
+  display: block;
+  padding: 0 15px 15px;
+  color: var(--rose);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+/* Tracking and receipts */
+.tracking-layout {
+  width: min(1180px, calc(100% - 28px));
+  margin: 28px auto;
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.tracking-list,
+.receipt-card {
+  background: var(--panel);
+  border: 1px solid rgba(94, 47, 79, 0.12);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+
+.tracking-list {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.tracking-list h2,
+.receipt-card h2 {
+  margin: 0;
+}
+
+.tracking-order {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.1);
+  border-radius: 8px;
+}
+
+.tracking-order.active {
+  color: #ffffff;
+  background: var(--plum);
+}
+
+.tracking-order small {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.receipt-card {
+  padding: clamp(18px, 3vw, 30px);
+}
+
+.receipt-header,
+.receipt-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.receipt-header button,
+.receipt-actions a {
+  min-height: 40px;
+  padding: 0 16px;
+  color: #ffffff;
+  background: var(--plum);
+  font-weight: 850;
+}
+
+.receipt-actions a {
+  display: inline-flex;
+  align-items: center;
+  background: var(--rose);
+}
+
+.receipt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.receipt-actions button:first-child {
+  background: var(--rose);
+}
+
+.tracking-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 22px 0;
+}
+
+.tracking-step {
+  min-height: 112px;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 12px;
+  color: var(--muted);
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.12);
+  border-radius: 8px;
+}
+
+.tracking-step span {
+  font-size: 0.82rem;
+  font-weight: 820;
+  color: var(--plum);
+}
+
+.tracking-step p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.tracking-step.done,
+.tracking-step.current {
+  color: #ffffff;
+}
+
+.tracking-step.done {
+  background: var(--sage);
+}
+
+.tracking-step.current {
+  background: var(--plum);
+  box-shadow: 0 12px 26px rgba(94, 47, 79, 0.18);
+}
+
+.tracking-step.done span,
+.tracking-step.current span {
+  color: #ffffff;
+}
+
+.parcel-status-card {
+  margin: 0 0 18px;
+  padding: 16px;
+  background: var(--sage-soft);
+  border: 1px solid rgba(127, 154, 136, 0.3);
+  border-radius: 8px;
+}
+
+.parcel-status-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.parcel-status-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--plum);
+  font-size: 1.1rem;
+}
+
+.parcel-status-card p {
+  margin: 7px 0 0;
+  color: var(--ink);
+}
+
+.tracking-number-card {
+  margin: 0 0 18px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.12);
+  border-radius: 8px;
+}
+
+.tracking-number-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.tracking-number-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--plum);
+  font-size: 1.05rem;
+}
+
+.tracking-number-card p {
+  margin: 7px 0 0;
+  color: var(--ink);
+}
+
+.tracking-number-card a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  margin-top: 12px;
+  padding: 0 14px;
+  color: #ffffff;
+  background: var(--plum);
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.received-button {
+  min-height: 40px;
+  margin-top: 12px;
+  padding: 0 16px;
+  color: #ffffff;
+  background: var(--rose);
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.receipt-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.receipt-grid div {
+  min-width: 0;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.1);
+  border-radius: 8px;
+}
+
+.receipt-grid span,
+.receipt-total span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.receipt-grid strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--plum);
+}
+
+.receipt-grid p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.receipt-lines {
+  display: grid;
+  gap: 10px;
+  margin: 22px 0;
+}
+
+.receipt-line {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.1);
+  border-radius: 8px;
+}
+
+.receipt-line img {
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+}
+
+.receipt-total {
+  padding-top: 18px;
+  border-top: 2px solid rgba(94, 47, 79, 0.14);
+}
+
+.receipt-total strong {
+  color: var(--plum);
+  font-size: 1.4rem;
+}
+
+.receipt-note {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 /* Navigation */
 .navbar {
   position: sticky;
@@ -188,6 +626,49 @@ h1 {
   box-shadow: none;
 }
 
+.nav-actions .cart-icon-link {
+  gap: 7px;
+  min-width: 86px;
+  padding: 9px 13px;
+  color: var(--plum);
+  background: var(--champagne);
+}
+
+.nav-actions .cart-icon-link:hover {
+  color: #ffffff;
+  background: var(--plum);
+}
+
+.nav-actions .nav-user-link {
+  gap: 8px;
+  max-width: 230px;
+  color: #ffffff;
+  background: var(--rose);
+}
+
+.nav-actions .nav-user-link span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-actions .nav-user-link img,
+.drawer-user-link img {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 50%;
+  object-fit: cover;
+  background: #ffffff;
+}
+
+.drawer-user-link {
+  gap: 10px;
+  justify-content: space-between;
+}
+
 .nav0 .nav-services a {
   min-height: 32px;
   padding: 7px 12px;
@@ -202,6 +683,11 @@ h1 {
   color: #ffffff;
   background: var(--plum);
   transform: translateY(-1px);
+}
+
+.drawer-cart-link {
+  gap: 8px;
+  justify-content: flex-start;
 }
 
 .drawer-button {
@@ -435,6 +921,7 @@ main,
 .cart-total input,
 .cart-total textarea,
 .cart-total select,
+.order-statuses input,
 .order-statuses select,
 .form-group input,
 .form-group textarea,
@@ -459,6 +946,7 @@ main,
 .cart-total input:focus,
 .cart-total textarea:focus,
 .cart-total select:focus,
+.order-statuses input:focus,
 .order-statuses select:focus,
 .form-group input:focus,
 .form-group textarea:focus,
@@ -481,6 +969,28 @@ main,
 .client-space-grid {
   width: min(1240px, 100%);
   margin: 0 auto 24px;
+}
+
+.client-welcome-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+  text-align: left;
+}
+
+.client-welcome-hero h1,
+.client-welcome-hero p {
+  text-align: left;
+}
+
+.client-welcome-avatar {
+  width: clamp(112px, 15vw, 168px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 5px solid #ffffff;
+  box-shadow: 0 20px 42px rgba(94, 47, 79, 0.22);
 }
 
 .client-profile-panel {
@@ -994,6 +1504,10 @@ form button:hover,
   padding: 30px;
 }
 
+.admin-registration-panel {
+  width: min(620px, 100%);
+}
+
 .client-auth-layout {
   display: grid;
   grid-template-columns: minmax(280px, 0.82fr) minmax(320px, 1.18fr);
@@ -1013,6 +1527,19 @@ form button:hover,
 .auth-form {
   display: grid;
   gap: 16px;
+}
+
+.auth-helper {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.auth-two-columns,
+.auth-link-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .admin-auth-panel .auth-form button {
@@ -1119,6 +1646,32 @@ form button:hover,
   color: var(--plum);
 }
 
+.admin-product-description {
+  display: -webkit-box;
+  margin: 0 0 8px;
+  overflow: hidden;
+  color: #6f5c67;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.admin-editing-note {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--plum);
+  background: #fff4e7;
+  border: 1px solid rgba(94, 47, 79, 0.14);
+  border-radius: 6px;
+  font-weight: 800;
+}
+
+.stock-count {
+  color: #6f5c67;
+  font-weight: 800;
+}
+
 .admin-actions {
   display: flex;
   justify-content: flex-end;
@@ -1147,6 +1700,18 @@ form button:hover,
   background: #fffaf4;
   border: 1px solid #dfc8bf;
   border-radius: 6px;
+}
+
+.stock-update-button {
+  width: 100%;
+  min-height: 42px;
+  background: var(--plum);
+  box-shadow: 0 8px 18px rgba(94, 47, 79, 0.18);
+}
+
+.stock-update-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .admin-actions .danger-button {
@@ -1238,6 +1803,16 @@ form button:hover,
 .order-statuses {
   display: grid;
   gap: 8px;
+}
+
+.admin-tracking-summary {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  color: var(--plum);
+  background: var(--champagne);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-weight: 800;
 }
 
 .admin-mini-label {
@@ -1715,14 +2290,64 @@ form.avis {
 }
 
 .portfolio {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 70px);
   padding: 44px 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(232, 23, 93, 0.28), transparent 30%),
+    radial-gradient(circle at 82% 18%, rgba(127, 154, 136, 0.28), transparent 34%),
+    linear-gradient(135deg, #fff7f4 0%, #f5d9df 42%, #e8efe7 100%);
+}
+
+.wave {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  bottom: -34%;
+  width: 165vw;
+  height: 165vw;
+  border-radius: 43%;
+  transform: translateX(-50%);
+  opacity: 0.42;
+  animation: portfolio-wave 16s linear infinite;
+}
+
+.wave-one {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.wave-two {
+  bottom: -38%;
+  border-radius: 46%;
+  background: rgba(184, 95, 122, 0.3);
+  animation-duration: 22s;
+  animation-direction: reverse;
+}
+
+.wave-three {
+  bottom: -42%;
+  border-radius: 40%;
+  background: rgba(127, 154, 136, 0.26);
+  animation-duration: 28s;
+}
+
+@keyframes portfolio-wave {
+  from {
+    transform: translateX(-50%) rotate(0deg);
+  }
+
+  to {
+    transform: translateX(-50%) rotate(360deg);
+  }
 }
 
 .profile-card {
+  position: relative;
+  z-index: 1;
   width: min(430px, 100%);
   padding: 30px;
   text-align: center;
@@ -2255,11 +2880,21 @@ footer a {
   .shop-layout,
   .admin-layout,
   .client-auth-layout,
+  .client-welcome-hero,
   .client-profile-panel,
   .client-space-grid,
   .order-row,
   .cart-panel {
     grid-template-columns: 1fr;
+  }
+
+  .tracking-layout,
+  .receipt-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-steps {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .order-summary {
@@ -2315,6 +2950,16 @@ footer a {
     justify-items: start;
   }
 
+  .client-welcome-hero {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .client-welcome-hero h1,
+  .client-welcome-hero p {
+    text-align: center;
+  }
+
   .beauty-hero-copy {
     min-height: auto;
     border-right: 1px solid var(--line);
@@ -2365,6 +3010,11 @@ footer a {
 
   .auth-panel {
     padding: 24px;
+  }
+
+  .auth-two-columns,
+  .auth-link-row {
+    grid-template-columns: 1fr;
   }
 
   .review-card {

@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
+import { useLazyQuery, useQuery } from "@apollo/client";
+import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { LOGOUT, WHO_AM_I } from "../graphql/queries";
+import { Role } from "../interface/types";
 
 const mainLinks = [
   { href: "/", label: "Accueil" },
+  { href: "/about", label: "Presentation" },
+  { href: "/projects", label: "Projets" },
   { href: "/produits", label: "Boutique" },
   { href: "/customer-advice", label: "Avis" },
   { href: "/contact", label: "Contact" },
@@ -16,8 +23,24 @@ const serviceLinks = [
 ];
 
 export default function Header() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const { data, refetch } = useQuery(WHO_AM_I, {
+    fetchPolicy: "cache-and-network",
+  });
+  const [logout] = useLazyQuery(LOGOUT, {
+    fetchPolicy: "network-only",
+  });
+  const user = data?.whoAmI;
+  const isLoggedIn = Boolean(user?.isLoggedIn);
+  const isClientLoggedIn = isLoggedIn && user?.role === Role.User;
+  const isAdminLoggedIn = isLoggedIn && user?.role === Role.Admin;
+  const clientName = [user?.firstname, user?.lastname].filter(Boolean).join(" ");
+  const clientLabel = clientName || user?.email || "Mon compte client";
+  const profileImage =
+    user?.avatarUrl ||
+    "https://img.freepik.com/premium-vector/default-avatar-profile-icon-vector-social-media-user-image_543062-212.jpg";
 
   useEffect(() => {
     const handleResize = () => {
@@ -31,6 +54,13 @@ export default function Header() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    await refetch();
+    setIsOpen(false);
+    router.push("/");
+  };
 
   return (
     <header className="navbar">
@@ -55,9 +85,27 @@ export default function Header() {
             ))}
           </div>
           <div className="nav-actions">
-            <Link href="/panier">Panier</Link>
-            <Link href="/connexion-client">Inscription</Link>
-            <Link href="/admin">Admin</Link>
+            <Link className="cart-icon-link" href="/panier" aria-label="Panier">
+              <ShoppingBag aria-hidden="true" size={19} strokeWidth={2.2} />
+              <span>Panier</span>
+            </Link>
+            {isClientLoggedIn ? (
+              <Link className="nav-user-link" href="/clients">
+                <span>Bonjour {clientLabel}</span>
+                <img src={profileImage} alt="" aria-hidden="true" />
+              </Link>
+            ) : !isLoggedIn ? (
+              <Link href="/connexion-client">Inscription</Link>
+            ) : null}
+            <Link href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}>
+              {isAdminLoggedIn ? "Interface admin" : "Admin"}
+            </Link>
+            {isClientLoggedIn && <Link href="/suivi-commandes">Suivi</Link>}
+            {isLoggedIn && (
+              <Link href="/" onClick={handleLogout}>
+                Deconnexion
+              </Link>
+            )}
           </div>
         </nav>
       )}
@@ -101,23 +149,60 @@ export default function Header() {
               <p className="drawer-section">Comptes</p>
               <ul>
                 <li>
-                  <Link href="/panier" onClick={() => setIsOpen(false)}>
-                    Panier
+                  <Link
+                    className="drawer-cart-link"
+                    href="/panier"
+                    aria-label="Panier"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <ShoppingBag aria-hidden="true" size={20} strokeWidth={2.2} />
+                    <span>Panier</span>
                   </Link>
                 </li>
                 <li>
-                  <Link href="/connexion-client" onClick={() => setIsOpen(false)}>
-                    Connexion / inscription
-                  </Link>
+                  {isClientLoggedIn ? (
+                    <Link
+                      className="drawer-user-link"
+                      href="/clients"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <span>Bonjour {clientLabel}</span>
+                      <img src={profileImage} alt="" aria-hidden="true" />
+                    </Link>
+                  ) : !isLoggedIn ? (
+                    <Link
+                      href="/connexion-client"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Connexion / inscription
+                    </Link>
+                  ) : null}
                 </li>
                 <li>
                   <Link
-                    href="/admin"
+                    href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}
                     onClick={() => setIsOpen(false)}
                   >
-                    Admin
+                    {isAdminLoggedIn ? "Interface admin" : "Admin"}
                   </Link>
                 </li>
+                {isClientLoggedIn && (
+                  <li>
+                    <Link
+                      href="/suivi-commandes"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Suivi commandes
+                    </Link>
+                  </li>
+                )}
+                {isLoggedIn && (
+                  <li>
+                    <Link href="/" onClick={handleLogout}>
+                      Deconnexion
+                    </Link>
+                  </li>
+                )}
               </ul>
             </nav>
           </div>
