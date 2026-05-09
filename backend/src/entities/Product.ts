@@ -36,6 +36,10 @@ export class Product extends BaseEntity {
   @Column("float")
   price: number;
 
+  @Field()
+  @Column({ default: "manucure" })
+  category: string;
+
   @Field(() => [Article], { nullable: true })
   @OneToMany(() => Article, (article) => article.product)
   articles?: Article[];

@@ -13,6 +13,7 @@ const products = [
     imgUrl:
       "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80",
     price: 39,
+    category: "maquillage",
     stock: 5,
   },
   {
@@ -22,6 +23,7 @@ const products = [
     imgUrl:
       "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?auto=format&fit=crop&w=900&q=80",
     price: 32,
+    category: "massage",
     stock: 4,
   },
   {
@@ -31,6 +33,7 @@ const products = [
     imgUrl:
       "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=900&q=80",
     price: 45,
+    category: "maquillage",
     stock: 3,
   },
   {
@@ -40,6 +43,7 @@ const products = [
     imgUrl:
       "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=900&q=80",
     price: 28,
+    category: "capillaires",
     stock: 6,
   },
   {
@@ -49,6 +53,7 @@ const products = [
     imgUrl:
       "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=900&q=80",
     price: 49,
+    category: "manucure",
     stock: 4,
   },
   {
@@ -58,6 +63,7 @@ const products = [
     imgUrl:
       "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=900&q=80",
     price: 24,
+    category: "massage",
     stock: 8,
   },
 ];
@@ -85,6 +91,10 @@ const seedBeauty = async () => {
     });
 
     if (existingProduct) {
+      if (existingProduct.category !== productData.category) {
+        existingProduct.category = productData.category;
+        await existingProduct.save();
+      }
       continue;
     }
 
@@ -93,6 +103,7 @@ const seedBeauty = async () => {
       description: productData.description,
       imgUrl: productData.imgUrl,
       price: productData.price,
+      category: productData.category,
     });
 
     await Article.save(

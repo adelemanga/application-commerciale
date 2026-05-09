@@ -85,7 +85,7 @@ const getBotAnswer = (message: string) => {
       "capillaire",
     ])
   ) {
-    return "Les produits et les prix viennent de la base de donnees. Vous pouvez consulter la boutique et filtrer par manucure, massage, make up ou soins capillaires.";
+    return "Les produits et les prix viennent de la base de donnees. Vous pouvez consulter la boutique et filtrer par manucure, massage, make up ou cheveux.";
   }
 
   if (

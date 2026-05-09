@@ -20,6 +20,34 @@ const paymentLabels: Record<string, string> = {
   paid: "paye",
 };
 
+const deliveryLabels: Record<string, string> = {
+  home: "Livraison a domicile",
+  relay: "Point relais",
+  store: "Retrait magasin",
+};
+
+const groupArticlesByProduct = (articles: any[] = []) =>
+  articles.reduce((groups: any[], article: any) => {
+    const product = article.product ?? {};
+    const productKey = product.id ?? product.name ?? article.id;
+    const existingGroup = groups.find((group) => group.productKey === productKey);
+
+    if (existingGroup) {
+      existingGroup.quantity += 1;
+      existingGroup.total += product.price ?? 0;
+      return groups;
+    }
+
+    groups.push({
+      productKey,
+      product,
+      quantity: 1,
+      total: product.price ?? 0,
+    });
+
+    return groups;
+  }, []);
+
 function TreatedOrdersContent() {
   const {
     data: reservationsData,
@@ -86,10 +114,14 @@ function TreatedOrdersContent() {
               (sum: number, article: any) => sum + (article.product?.price ?? 0),
               0
             );
+            const productLines = groupArticlesByProduct(reservation.articles);
             const isOnlinePaid =
               reservation.paymentMethod === "card" &&
               reservation.paymentStatus === "paid" &&
               Boolean(reservation.stripeSessionId);
+            const deliveryModeLabel =
+              deliveryLabels[reservation.deliveryMethod || "home"] ||
+              "Livraison a domicile";
 
             return (
               <article className="order-row" key={reservation.id}>
@@ -119,32 +151,58 @@ function TreatedOrdersContent() {
                       "non renseigne"}
                   </p>
                   <p>
-                    Adresse :{" "}
+                    Coordonnees :{" "}
                     {reservation.customerAddress ||
                       reservation.user?.address ||
                       "non renseignee"}
                   </p>
+                  <p>Mode : {deliveryModeLabel}</p>
+                  {reservation.deliveryMethod === "relay" && (
+                    <p>
+                      Relais : {reservation.relayName || "non renseigne"} -{" "}
+                      {reservation.relayAddress || "adresse non renseignee"}
+                    </p>
+                  )}
+                  {reservation.deliveryMethod === "store" && (
+                    <p>
+                      Retrait :{" "}
+                      {reservation.pickupDate
+                        ? `${new Date(reservation.pickupDate).toLocaleDateString(
+                            "fr-FR"
+                          )}${reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""}`
+                        : "date non renseignee"}
+                    </p>
+                  )}
+                  {reservation.paymentMethod !== "card" && (
+                    <p>
+                      Retrait :{" "}
+                      {reservation.pickupDate
+                        ? `${new Date(reservation.pickupDate).toLocaleDateString(
+                            "fr-FR"
+                          )}${reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""}`
+                        : "date non renseignee"}
+                    </p>
+                  )}
                 </div>
 
                 <div className="order-products">
                   <span className="admin-mini-label">Produits commandes</span>
                   <p>
-                    Du{" "}
-                    {new Date(reservation.startDate).toLocaleDateString("fr-FR")} au{" "}
-                    {new Date(reservation.endDate).toLocaleDateString("fr-FR")}
-                  </p>
-                  <p>
-                    {reservation.articles.length} produit(s) - {formatPrice(total)}
+                    {reservation.articles.length} produit(s),{" "}
+                    {productLines.length} reference(s) - {formatPrice(total)}
                   </p>
                   <ul>
-                    {reservation.articles.map((article: any) => (
-                      <li key={article.id}>
+                    {productLines.map((line) => (
+                      <li key={line.productKey}>
                         <img
-                          src={article.product?.imgUrl}
-                          alt={article.product?.name}
+                          src={line.product?.imgUrl}
+                          alt={line.product?.name}
                         />
-                        <span>{article.product?.name}</span>
-                        <strong>{formatPrice(article.product?.price)}</strong>
+                        <span>{line.product?.name}</span>
+                        <span className="order-product-quantity">
+                          x{line.quantity}
+                        </span>
+                        <strong>{formatPrice(line.total)}</strong>
                       </li>
                     ))}
                   </ul>
@@ -163,8 +221,12 @@ function TreatedOrdersContent() {
                       {reservation.trackingNumber || "numero non renseigne"}
                     </p>
                   )}
-                  <span className="status-pill payment-pill">
-                    {isOnlinePaid ? "Paiement CB" : "Paiement sur place"}
+                  <span
+                    className={`status-pill ${
+                      isOnlinePaid ? "payment-pill" : "payment-pill payment-pill-store"
+                    }`}
+                  >
+                    {isOnlinePaid ? "Paiement confirme" : "Sur place"}
                   </span>
                   <button
                     type="button"

@@ -1,14 +1,12 @@
 import { ApolloProvider, useMutation } from "@apollo/client";
 import { useRouter } from "next/router";
 import { ChangeEvent, FormEvent, useState } from "react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import { deliveryCities, getDeliveryAddress } from "@/data/deliveryAddresses";
 import client from "../graphql/client";
 import { CREATE_NEW_USER } from "../graphql/mutations";
 import { WHO_AM_I } from "../graphql/queries";
-
-const defaultCity = deliveryCities[0];
 
 const resizeProfilePhoto = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -50,23 +48,12 @@ function InscriptionClientContent() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [city, setCity] = useState(defaultCity.name);
-  const [street, setStreet] = useState(defaultCity.streets[0]);
+  const [address, setAddress] = useState("");
   const [addressComplement, setAddressComplement] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [createUser, { loading }] = useMutation(CREATE_NEW_USER);
-  const selectedCity =
-    deliveryCities.find((deliveryCity) => deliveryCity.name === city) ||
-    defaultCity;
-
-  const handleCityChange = (nextCity: string) => {
-    const deliveryCity =
-      deliveryCities.find((item) => item.name === nextCity) || defaultCity;
-    setCity(deliveryCity.name);
-    setStreet(deliveryCity.streets[0]);
-  };
 
   const selectAvatarFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -98,7 +85,7 @@ function InscriptionClientContent() {
       return;
     }
 
-    const address = getDeliveryAddress(street, city, addressComplement);
+    const fullAddress = [address, addressComplement].filter(Boolean).join(", ");
 
     try {
       await createUser({
@@ -107,7 +94,7 @@ function InscriptionClientContent() {
           lastname: lastname.trim(),
           email: email.trim().toLowerCase(),
           phone: phone.trim(),
-          address,
+          address: fullAddress,
           avatarUrl,
           password,
         },
@@ -177,39 +164,13 @@ function InscriptionClientContent() {
               alt="Apercu du profil"
             />
           )}
-          <label>
-            Ville
-            <select
-              required
-              value={city}
-              onChange={(event) => handleCityChange(event.target.value)}
-            >
-              {deliveryCities.map((deliveryCity) => (
-                <option key={deliveryCity.name} value={deliveryCity.name}>
-                  {deliveryCity.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Code postal
-            <input required readOnly value={selectedCity.postalCode} />
-          </label>
-          <label>
-            Adresse
-            <select
-              required
-              autoComplete="street-address"
-              value={street}
-              onChange={(event) => setStreet(event.target.value)}
-            >
-              {selectedCity.streets.map((streetName) => (
-                <option key={streetName} value={streetName}>
-                  {streetName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <AddressAutocomplete
+            required
+            label="Adresse de livraison"
+            value={address}
+            onChange={setAddress}
+            placeholder="Region, ville, code postal, rue ou adresse complete"
+          />
           <label>
             Complement d'adresse
             <input

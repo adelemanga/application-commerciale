@@ -1,7 +1,7 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import client from "../graphql/client";
@@ -37,7 +37,7 @@ const categories = {
     keywords: ["maquillage", "palette", "teint", "serum"],
   },
   capillaires: {
-    label: "Soins capillaires",
+    label: "Cheveux",
     keywords: ["capillaire", "cheveux", "huile"],
   },
 } as const;
@@ -47,22 +47,29 @@ type CategoryKey = keyof typeof categories;
 function ProduitsContent() {
   const router = useRouter();
   const [message, setMessage] = useState("");
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
+  const pendingProductIds = useRef<Set<string>>(new Set());
   const { data: userData } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
+    errorPolicy: "ignore",
   });
+  const isLoggedIn = Boolean(userData?.whoAmI?.isLoggedIn);
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS, {
-    fetchPolicy: "network-only",
+    fetchPolicy: "cache-and-network",
+    nextFetchPolicy: "cache-first",
+    notifyOnNetworkStatusChange: false,
   });
   const { data: cartData, refetch: refetchCart } = useQuery(
     GET_CURRENT_RESERVATION_BY_USER_ID,
-    { fetchPolicy: "network-only" }
-  );
-  const [handleReservation, { loading: adding }] = useMutation(
-    HANDLE_RESERVATION,
     {
-      refetchQueries: [{ query: GET_CURRENT_RESERVATION_BY_USER_ID }],
+      fetchPolicy: "network-only",
+      errorPolicy: "ignore",
+      skip: !isLoggedIn,
     }
   );
+  const [handleReservation] = useMutation(HANDLE_RESERVATION, {
+    refetchQueries: [{ query: GET_CURRENT_RESERVATION_BY_USER_ID }],
+  });
 
   const products = useMemo<ProductWithArticles[]>(
     () => data?.getAllProducts ?? [],
@@ -80,29 +87,73 @@ function ProduitsContent() {
     }
 
     return products.filter((product) => {
+      if (product.category === selectedCategory) {
+        return true;
+      }
+
       const searchable = `${product.name} ${product.description}`.toLowerCase();
       return category.keywords.some((keyword) => searchable.includes(keyword));
     });
-  }, [category, products]);
+  }, [category, products, selectedCategory]);
 
   const reservation = cartData?.getCurrentReservationByUserId?.reservation;
   const totalPrice = cartData?.getCurrentReservationByUserId?.totalPrice ?? 0;
-  const isLoggedIn = userData?.whoAmI?.isLoggedIn;
+  const cartLines = useMemo(() => {
+    return (reservation?.articles ?? []).reduce((lines: any[], article: any) => {
+      const productId = article.product?.id || article.product?.name || article.id;
+      const existingLine = lines.find((line) => line.productId === productId);
 
+      if (existingLine) {
+        existingLine.quantity += 1;
+        existingLine.lineTotal += article.product?.price ?? 0;
+        return lines;
+      }
+
+      lines.push({
+        productId,
+        product: article.product,
+        quantity: 1,
+        lineTotal: article.product?.price ?? 0,
+      });
+
+      return lines;
+    }, []).sort((firstLine: any, secondLine: any) =>
+      String(firstLine.product?.name ?? "").localeCompare(
+        String(secondLine.product?.name ?? ""),
+        "fr"
+      )
+    );
+  }, [reservation?.articles]);
   const addToCart = async (product: ProductWithArticles) => {
-    setMessage("");
-
-    if (!isLoggedIn) {
-      setMessage(
-        "Connectez-vous ou creez un compte avant d'ajouter au panier."
-      );
+    if (pendingProductIds.current.has(product.id)) {
       return;
     }
 
-    const articleId = product.articles?.[0]?.id;
+    setMessage("");
+    setAddingProductId(product.id);
+    pendingProductIds.current.add(product.id);
+
+    if (!isLoggedIn) {
+      setMessage(
+        "Connectez-vous ou creez votre compte client pour ajouter ce produit au panier."
+      );
+      pendingProductIds.current.delete(product.id);
+      setAddingProductId(null);
+      router.push("/connexion-client");
+      return;
+    }
+
+    const reservedArticleIds = new Set(
+      reservation?.articles?.map((article: any) => article.id) ?? []
+    );
+    const articleId = product.articles?.find(
+      (article) => !reservedArticleIds.has(article.id)
+    )?.id;
 
     if (!articleId) {
-      setMessage("Ce produit n'a pas encore de stock disponible.");
+      setMessage("Toutes les unites disponibles de ce produit sont deja dans votre panier.");
+      pendingProductIds.current.delete(product.id);
+      setAddingProductId(null);
       return;
     }
 
@@ -123,6 +174,9 @@ function ProduitsContent() {
       setMessage(`${product.name} a ete ajoute au panier.`);
     } catch {
       setMessage("Impossible d'ajouter ce produit au panier.");
+    } finally {
+      pendingProductIds.current.delete(product.id);
+      setAddingProductId(null);
     }
   };
 
@@ -135,8 +189,8 @@ function ProduitsContent() {
         <h1>{category ? `Boutique ${category.label}` : "Boutique"}</h1>
         <p>
           {category
-            ? "Voici les produits correspondant au theme choisi. Les prix viennent directement de la base de donnees."
-            : "Les prix et les produits viennent directement de la base de donnees. Selectionnez un produit pour l'ajouter automatiquement au panier."}
+            ? "Decouvrez une selection adaptee a ce soin, avec les produits disponibles pour commander en ligne."
+            : "Decouvrez les soins, accessoires et essentiels beaute disponibles. Ajoutez vos favoris au panier en quelques clics."}
         </p>
         {category && (
           <div className="category-actions">
@@ -146,16 +200,18 @@ function ProduitsContent() {
       </section>
 
       {message && <p className="shop-message">{message}</p>}
-      {loading && <p className="shop-message">Chargement des produits...</p>}
+      {loading && !products.length && (
+        <p className="shop-message">La boutique se prepare...</p>
+      )}
       {error && (
-        <p className="shop-message">Impossible de charger les produits.</p>
+        <p className="shop-message">Impossible d'afficher la boutique pour le moment.</p>
       )}
 
       {!isLoggedIn && (
         <section className="shop-auth-callout">
           <p>
-            Pour ajouter un produit au panier, connectez-vous ou creez un compte
-            client.
+            Vous pouvez parcourir tous les produits disponibles. La connexion
+            permet simplement de retrouver votre panier et vos commandes.
           </p>
           <div>
             <Link href="/connexion-client">Connexion ou inscription</Link>
@@ -175,9 +231,9 @@ function ProduitsContent() {
                 <button
                   type="button"
                   onClick={() => addToCart(product)}
-                  disabled={adding}
+                  disabled={addingProductId === product.id}
                 >
-                  Ajouter au panier
+                  {addingProductId === product.id ? "Ajout..." : "Ajouter au panier"}
                 </button>
               </div>
             </article>
@@ -194,10 +250,13 @@ function ProduitsContent() {
           {reservation?.articles?.length ? (
             <>
               <ul>
-                {reservation.articles.map((article: any) => (
-                  <li key={article.id}>
-                    <span>{article.product.name}</span>
-                    <strong>{formatPrice(article.product.price)}</strong>
+                {cartLines.map((line: any) => (
+                  <li key={line.productId}>
+                    <span className="mini-cart-product-name">{line.product.name}</span>
+                    <span className="mini-cart-quantity">
+                      x<strong>{line.quantity}</strong>
+                    </span>
+                    <strong>{formatPrice(line.lineTotal)}</strong>
                   </li>
                 ))}
               </ul>
@@ -207,7 +266,11 @@ function ProduitsContent() {
               </Link>
             </>
           ) : (
-            <p>Aucun produit dans le panier pour le moment.</p>
+            <p>
+              {isLoggedIn
+                ? "Aucun produit dans le panier pour le moment."
+                : "Connectez-vous pour retrouver votre panier client."}
+            </p>
           )}
         </aside>
       </section>

@@ -1,14 +1,12 @@
 import { ApolloProvider, useLazyQuery, useMutation } from "@apollo/client";
 import { useRouter } from "next/router";
 import { ChangeEvent, FormEvent, useState } from "react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import { deliveryCities, getDeliveryAddress } from "@/data/deliveryAddresses";
 import client from "../graphql/client";
 import { CREATE_NEW_USER } from "../graphql/mutations";
 import { LOGIN_CLIENT, WHO_AM_I } from "../graphql/queries";
-
-const defaultCity = deliveryCities[0];
 
 const resizeProfilePhoto = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -53,8 +51,7 @@ function ConnexionClientContent() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [city, setCity] = useState(defaultCity.name);
-  const [street, setStreet] = useState(defaultCity.streets[0]);
+  const [address, setAddress] = useState("");
   const [addressComplement, setAddressComplement] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -63,16 +60,6 @@ function ConnexionClientContent() {
     fetchPolicy: "network-only",
   });
   const [createUser, { loading: registering }] = useMutation(CREATE_NEW_USER);
-  const selectedCity =
-    deliveryCities.find((deliveryCity) => deliveryCity.name === city) ||
-    defaultCity;
-
-  const handleCityChange = (nextCity: string) => {
-    const deliveryCity =
-      deliveryCities.find((item) => item.name === nextCity) || defaultCity;
-    setCity(deliveryCity.name);
-    setStreet(deliveryCity.streets[0]);
-  };
 
   const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -128,7 +115,7 @@ function ConnexionClientContent() {
       return;
     }
 
-    const address = getDeliveryAddress(street, city, addressComplement);
+    const fullAddress = [address, addressComplement].filter(Boolean).join(", ");
 
     try {
       await createUser({
@@ -137,7 +124,7 @@ function ConnexionClientContent() {
           lastname: lastname.trim(),
           email: registerEmail.trim().toLowerCase(),
           phone: phone.trim(),
-          address,
+          address: fullAddress,
           avatarUrl,
           password: registerPassword.trim(),
         },
@@ -156,9 +143,14 @@ function ConnexionClientContent() {
   return (
     <main className="auth-page client-auth-page">
       <section className="client-auth-layout">
-      <section className="auth-panel">
-        <p className="shop-kicker">Espace client</p>
-        <h1>Connexion client</h1>
+      <section className="auth-panel login-panel">
+        <p className="shop-kicker">Deja inscrit</p>
+        <h1>Je me connecte</h1>
+        <p className="auth-helper">
+          Vous avez deja un compte BeautyPlace ? Entrez votre email et votre
+          mot de passe pour retrouver votre profil, votre panier et vos
+          commandes.
+        </p>
         <form className="auth-form" onSubmit={submitLogin}>
           <label>
             Email
@@ -182,14 +174,18 @@ function ConnexionClientContent() {
           </label>
           {message && <p className="auth-error">{message}</p>}
           <button type="submit" disabled={loading}>
-            Se connecter
+            Acceder a mon compte
           </button>
         </form>
       </section>
 
-      <section className="auth-panel registration-panel">
-        <p className="shop-kicker">Nouveau compte</p>
-        <h1>Inscription client</h1>
+      <section className="auth-panel registration-panel client-registration-panel">
+        <p className="shop-kicker">Premiere visite</p>
+        <h1>Je cree mon compte</h1>
+        <p className="auth-helper">
+          Vous n'avez pas encore de compte ? Remplissez ce formulaire pour
+          enregistrer vos informations et suivre vos commandes plus facilement.
+        </p>
         <form className="auth-form" onSubmit={submitRegistration}>
           <label>
             Prenom
@@ -240,39 +236,13 @@ function ConnexionClientContent() {
               alt="Apercu du profil"
             />
           )}
-          <label>
-            Ville
-            <select
-              required
-              value={city}
-              onChange={(event) => handleCityChange(event.target.value)}
-            >
-              {deliveryCities.map((deliveryCity) => (
-                <option key={deliveryCity.name} value={deliveryCity.name}>
-                  {deliveryCity.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Code postal
-            <input required readOnly value={selectedCity.postalCode} />
-          </label>
-          <label>
-            Adresse
-            <select
-              required
-              autoComplete="street-address"
-              value={street}
-              onChange={(event) => setStreet(event.target.value)}
-            >
-              {selectedCity.streets.map((streetName) => (
-                <option key={streetName} value={streetName}>
-                  {streetName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <AddressAutocomplete
+            required
+            label="Adresse de livraison"
+            value={address}
+            onChange={setAddress}
+            placeholder="Region, ville, code postal, rue ou adresse complete"
+          />
           <label>
             Complement d'adresse
             <input
@@ -306,7 +276,7 @@ function ConnexionClientContent() {
           </label>
           {registerMessage && <p className="auth-error">{registerMessage}</p>}
           <button type="submit" disabled={registering}>
-            Creer mon compte
+            Creer mon compte client
           </button>
         </form>
       </section>

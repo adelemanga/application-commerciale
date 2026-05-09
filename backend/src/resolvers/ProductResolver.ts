@@ -13,6 +13,8 @@ import {
 } from "type-graphql";
 import { Role } from "../entities/User";
 
+const productCategories = ["manucure", "massage", "maquillage", "capillaires"];
+
 @InputType()
 class NewProductInput implements Partial<Product> {
   @Field()
@@ -26,7 +28,22 @@ class NewProductInput implements Partial<Product> {
 
   @Field()
   price: number;
+
+  @Field({ nullable: true })
+  category?: string;
 }
+
+const normalizeProductCategory = (category?: string) => {
+  const normalizedCategory = category?.trim();
+
+  if (!normalizedCategory || !productCategories.includes(normalizedCategory)) {
+    throw new Error(
+      "Choisissez une categorie valide : manucure, massage, maquillage ou cheveux."
+    );
+  }
+
+  return normalizedCategory;
+};
 
 // data from range picker
 @InputType()
@@ -55,8 +72,10 @@ class ProductResolver {
   @Authorized(Role.Admin)
   @Mutation(() => Product)
   async createNewProduct(@Arg("data") newProductData: NewProductInput) {
+    const category = normalizeProductCategory(newProductData.category);
     const resultFromSave = await Product.save({
       ...newProductData,
+      category,
     });
 
     return resultFromSave;
@@ -196,6 +215,7 @@ class ProductResolver {
     product.name = newProductData.name;
     product.description = newProductData.description;
     product.price = newProductData.price;
+    product.category = normalizeProductCategory(newProductData.category);
     if (newProductData.imgUrl !== undefined) {
       product.imgUrl = newProductData.imgUrl;
     }

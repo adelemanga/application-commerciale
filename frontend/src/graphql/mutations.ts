@@ -77,6 +77,7 @@ export const CREATE_NEW_PRODUCT = gql`
       name
       imgUrl
       price
+      category
       description
     }
   }
@@ -147,6 +148,7 @@ export const EDIT_PRODUCT = gql`
       imgUrl
       id
       description
+      category
     }
   }
 `;
@@ -203,18 +205,24 @@ export const SUBMIT_RESERVATION_TO_ADMIN = gql`
     $customerPhone: String!
     $customerAddress: String!
     $paymentMethod: String!
+    $pickupDate: String
+    $pickupTime: String
   ) {
     submitReservationToAdmin(
       reservationId: $reservationId
       customerPhone: $customerPhone
       customerAddress: $customerAddress
       paymentMethod: $paymentMethod
+      pickupDate: $pickupDate
+      pickupTime: $pickupTime
     ) {
       id
       status
       customerPhone
       customerAddress
       paymentMethod
+      pickupDate
+      pickupTime
       paymentStatus
     }
   }
@@ -225,11 +233,23 @@ export const CREATE_STRIPE_CHECKOUT_SESSION = gql`
     $reservationId: ID!
     $customerPhone: String!
     $customerAddress: String!
+    $deliveryMethod: String
+    $pickupDate: String
+    $pickupTime: String
+    $relayName: String
+    $relayAddress: String
+    $frontendUrl: String
   ) {
     createStripeCheckoutSession(
       reservationId: $reservationId
       customerPhone: $customerPhone
       customerAddress: $customerAddress
+      deliveryMethod: $deliveryMethod
+      pickupDate: $pickupDate
+      pickupTime: $pickupTime
+      relayName: $relayName
+      relayAddress: $relayAddress
+      frontendUrl: $frontendUrl
     ) {
       url
     }
@@ -245,6 +265,11 @@ export const CONFIRM_STRIPE_CHECKOUT_SESSION = gql`
       paymentStatus
       customerPhone
       customerAddress
+      deliveryMethod
+      pickupDate
+      pickupTime
+      relayName
+      relayAddress
     }
   }
 `;

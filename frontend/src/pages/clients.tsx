@@ -1,6 +1,6 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import client from "../graphql/client";
@@ -17,13 +17,17 @@ type ProductWithArticles = Product & {
   articles?: { id: string }[];
 };
 
+const formatPrice = (price?: number) =>
+  new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+  }).format(price ?? 0);
+
 function ClientsContent() {
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(tomorrow);
   const [message, setMessage] = useState("");
   const [likedProductIds, setLikedProductIds] = useState<string[]>([]);
+  const [orderingProductId, setOrderingProductId] = useState<string | null>(null);
+  const pendingProductIds = useRef<Set<string>>(new Set());
 
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS);
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
@@ -37,7 +41,7 @@ function ClientsContent() {
     GET_RESERVATIONS_BY_USER_ID,
     { fetchPolicy: "network-only" }
   );
-  const [handleReservation, { loading: ordering }] = useMutation(HANDLE_RESERVATION, {
+  const [handleReservation] = useMutation(HANDLE_RESERVATION, {
     refetchQueries: [
       { query: GET_CURRENT_RESERVATION_BY_USER_ID },
       { query: GET_RESERVATIONS_BY_USER_ID },
@@ -85,27 +89,45 @@ function ClientsContent() {
   };
 
   const orderProduct = async (product: ProductWithArticles) => {
+    if (pendingProductIds.current.has(product.id)) {
+      return;
+    }
+
     setMessage("");
+    setOrderingProductId(product.id);
+    pendingProductIds.current.add(product.id);
 
     if (!isLoggedIn) {
       setMessage("Connectez-vous ou creez un compte avant d'ajouter au panier.");
+      pendingProductIds.current.delete(product.id);
+      setOrderingProductId(null);
       return;
     }
 
-    const articleId = product.articles?.[0]?.id;
+    const reservedArticleIds = new Set(
+      reservation?.articles?.map((article: any) => article.id) ?? []
+    );
+    const articleId = product.articles?.find(
+      (article) => !reservedArticleIds.has(article.id)
+    )?.id;
 
     if (!articleId) {
-      setMessage("Ce produit n'a pas encore de stock disponible.");
+      setMessage("Toutes les unites disponibles de ce produit sont deja dans votre panier.");
+      pendingProductIds.current.delete(product.id);
+      setOrderingProductId(null);
       return;
     }
+
+    const today = new Date();
+    const tomorrow = new Date(Date.now() + 86400000);
 
     try {
       await handleReservation({
         variables: {
           data: {
             articleId,
-            startDate: new Date(startDate).toISOString(),
-            endDate: new Date(endDate).toISOString(),
+            startDate: today.toISOString(),
+            endDate: tomorrow.toISOString(),
           },
         },
       });
@@ -114,11 +136,40 @@ function ClientsContent() {
       setMessage(`${product.name} a bien ete ajoute a votre commande.`);
     } catch {
       setMessage("Connectez-vous avant de commander un produit.");
+    } finally {
+      pendingProductIds.current.delete(product.id);
+      setOrderingProductId(null);
     }
   };
 
   const reservation = cartData?.getCurrentReservationByUserId?.reservation;
   const totalPrice = cartData?.getCurrentReservationByUserId?.totalPrice ?? 0;
+  const cartLines = useMemo(() => {
+    return (reservation?.articles ?? []).reduce((lines: any[], article: any) => {
+      const productId = article.product?.id || article.product?.name || article.id;
+      const existingLine = lines.find((line) => line.productId === productId);
+
+      if (existingLine) {
+        existingLine.quantity += 1;
+        existingLine.lineTotal += article.product?.price ?? 0;
+        return lines;
+      }
+
+      lines.push({
+        productId,
+        product: article.product,
+        quantity: 1,
+        lineTotal: article.product?.price ?? 0,
+      });
+
+      return lines;
+    }, []).sort((firstLine: any, secondLine: any) =>
+      String(firstLine.product?.name ?? "").localeCompare(
+        String(secondLine.product?.name ?? ""),
+        "fr"
+      )
+    );
+  }, [reservation?.articles]);
 
   return (
     <main className="shop-page">
@@ -160,7 +211,10 @@ function ClientsContent() {
               alt={`${user.firstname || "Client"} ${user.lastname || ""}`}
             />
             <div>
-              <p className="shop-kicker">Profil connecte</p>
+              <p className="shop-kicker profile-kicker-connected">
+                Profil connecte
+                <span className="connected-dot" aria-label="Connecte" />
+              </p>
               <h2>
                 {user.firstname} {user.lastname}
               </h2>
@@ -192,30 +246,11 @@ function ClientsContent() {
         </section>
       )}
 
-      <section className="shop-controls" aria-label="Dates de commande">
-        <label>
-          Debut
-          <input
-            type="date"
-            value={startDate}
-            min={today}
-            onChange={(event) => setStartDate(event.target.value)}
-          />
-        </label>
-        <label>
-          Fin
-          <input
-            type="date"
-            value={endDate}
-            min={startDate}
-            onChange={(event) => setEndDate(event.target.value)}
-          />
-        </label>
-      </section>
-
-      {message && <p className="shop-message">{message}</p>}
-      {loading && <p className="shop-message">Chargement des produits...</p>}
-      {error && <p className="shop-message">Impossible de charger les produits.</p>}
+      <div className="shop-message-slot">
+        {message && <p className="shop-message">{message}</p>}
+        {loading && <p className="shop-message">Chargement des produits...</p>}
+        {error && <p className="shop-message">Impossible de charger les produits.</p>}
+      </div>
 
       {!loadingUser && !isLoggedIn && (
         <section className="shop-auth-callout">
@@ -238,8 +273,10 @@ function ClientsContent() {
                 <div className="shop-card-actions">
                   <button
                     type="button"
+                    className="order-product-button"
                     onClick={() => orderProduct(product)}
-                    disabled={ordering}
+                    disabled={orderingProductId === product.id}
+                    aria-busy={orderingProductId === product.id}
                   >
                     Commander
                   </button>
@@ -270,17 +307,28 @@ function ClientsContent() {
           {reservation?.articles?.length ? (
             <>
               <ul>
-                {reservation.articles.map((article: any) => (
-                  <li key={article.id}>
-                    <span>{article.product.name}</span>
-                    <strong>{article.product.price} EUR</strong>
+                {cartLines.map((line: any) => (
+                  <li key={line.productId}>
+                    <span className="mini-cart-product-name">{line.product.name}</span>
+                    <span className="mini-cart-quantity">
+                      x<strong>{line.quantity}</strong>
+                    </span>
+                    <strong>{formatPrice(line.lineTotal)}</strong>
                   </li>
                 ))}
               </ul>
-              <p className="order-total">Total : {totalPrice} EUR</p>
+              <p className="order-total">Total : {formatPrice(totalPrice)}</p>
+              <Link className="cart-link" href="/panier">
+                Acceder au panier
+              </Link>
             </>
           ) : (
-            <p>Aucun produit dans la commande pour le moment.</p>
+            <>
+              <p>Aucun produit dans la commande pour le moment.</p>
+              <Link className="cart-link" href="/panier">
+                Voir mon panier
+              </Link>
+            </>
           )}
         </aside>
       </section>
@@ -299,10 +347,7 @@ function ClientsContent() {
                         "fr-FR"
                       )}
                     </strong>
-                    <p>
-                      Statut : {item.reservation.status} - Total :{" "}
-                      {item.totalPrice} EUR
-                    </p>
+                    <p>Statut : {item.reservation.status}</p>
                     {item.reservation.status !== "pending" && (
                       <Link href={`/suivi-commandes?commande=${item.reservation.id}`}>
                         Voir le recu et le suivi
@@ -321,6 +366,9 @@ function ClientsContent() {
                       </li>
                     ))}
                   </ul>
+                  <p className="client-history-total">
+                    Total commande : <strong>{formatPrice(item.totalPrice)}</strong>
+                  </p>
                 </div>
               ))}
             </div>
