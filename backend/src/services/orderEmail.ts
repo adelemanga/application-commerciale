@@ -53,8 +53,68 @@ const getTrackingUrl = (
   return "";
 };
 
+const getDeliveryLabel = (reservation: Reservation) => {
+  if (reservation.deliveryMethod === "store") return "Retrait magasin";
+  if (reservation.deliveryMethod === "relay") return "Point relais";
+  return "Livraison a domicile";
+};
+
+const buildDeliveryHtml = (reservation: Reservation) => {
+  if (reservation.deliveryMethod === "store") {
+    return `
+      <p><strong>Mode :</strong> Retrait magasin</p>
+      <p><strong>Date de retrait :</strong> ${
+        reservation.pickupDate || "A confirmer"
+      }${reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""}</p>
+    `;
+  }
+
+  if (reservation.deliveryMethod === "relay") {
+    return `
+      <p><strong>Mode :</strong> Point relais</p>
+      <p><strong>Relais :</strong> ${reservation.relayName || "A confirmer"}</p>
+      <p><strong>Adresse relais :</strong> ${
+        reservation.relayAddress || reservation.customerAddress || "A confirmer"
+      }</p>
+    `;
+  }
+
+  return `<p><strong>Mode :</strong> ${getDeliveryLabel(reservation)}</p>`;
+};
+
+const groupArticlesByProduct = (articles: Reservation["articles"] = []) =>
+  articles.reduce<
+    {
+      productKey: string;
+      productName: string;
+      quantity: number;
+      total: number;
+    }[]
+  >((groups, article) => {
+    const productKey = String(
+      article.product?.id ?? article.product?.name ?? article.id
+    );
+    const existingGroup = groups.find((group) => group.productKey === productKey);
+
+    if (existingGroup) {
+      existingGroup.quantity += 1;
+      existingGroup.total += article.product?.price ?? 0;
+      return groups;
+    }
+
+    groups.push({
+      productKey,
+      productName: article.product?.name ?? "Produit",
+      quantity: 1,
+      total: article.product?.price ?? 0,
+    });
+
+    return groups;
+  }, []);
+
 const buildOrderHtml = (reservation: Reservation, variant: "admin" | "client") => {
   const total = calculateTotal(reservation.articles ?? []);
+  const productLines = groupArticlesByProduct(reservation.articles ?? []);
   const trackingUrl = getTrackingUrl(
     reservation.shippingCarrier,
     reservation.trackingNumber
@@ -72,6 +132,7 @@ const buildOrderHtml = (reservation: Reservation, variant: "admin" | "client") =
       }
     `
     : "";
+  const deliveryHtml = buildDeliveryHtml(reservation);
   const title =
     variant === "admin"
       ? "Nouvelle commande Beauty Place"
@@ -80,15 +141,18 @@ const buildOrderHtml = (reservation: Reservation, variant: "admin" | "client") =
     variant === "admin"
       ? "Une nouvelle commande vient d'etre envoyee a l'administration."
       : "Merci pour votre commande. Voici votre recu avec le recapitulatif de facturation.";
-  const products = reservation.articles
+  const products = productLines
     .map(
-      (article) => `
+      (line) => `
         <tr>
           <td style="padding:8px 0;border-bottom:1px solid #ead8cf;">${
-            article.product?.name ?? "Produit"
+            line.productName
+          }</td>
+          <td style="padding:8px 0;border-bottom:1px solid #ead8cf;text-align:center;">x${
+            line.quantity
           }</td>
           <td style="padding:8px 0;border-bottom:1px solid #ead8cf;text-align:right;">${formatPrice(
-            article.product?.price
+            line.total
           )}</td>
         </tr>
       `
@@ -117,12 +181,14 @@ const buildOrderHtml = (reservation: Reservation, variant: "admin" | "client") =
           ? "Carte bancaire"
           : "Paiement sur place"
       } - ${reservation.paymentStatus === "paid" ? "paye" : "a payer"}</p>
+      ${deliveryHtml}
       ${trackingHtml}
       <table style="width:100%;border-collapse:collapse;margin:18px 0;">
         <thead>
           <tr>
             <th style="text-align:left;padding:8px 0;border-bottom:2px solid #5e2f4f;">Produit</th>
-            <th style="text-align:right;padding:8px 0;border-bottom:2px solid #5e2f4f;">Prix</th>
+            <th style="text-align:center;padding:8px 0;border-bottom:2px solid #5e2f4f;">Quantite</th>
+            <th style="text-align:right;padding:8px 0;border-bottom:2px solid #5e2f4f;">Total</th>
           </tr>
         </thead>
         <tbody>${products}</tbody>

@@ -85,10 +85,12 @@ export default function Header() {
             ))}
           </div>
           <div className="nav-actions">
-            <Link className="cart-icon-link" href="/panier" aria-label="Panier">
-              <ShoppingBag aria-hidden="true" size={19} strokeWidth={2.2} />
-              <span>Panier</span>
-            </Link>
+            {!isAdminLoggedIn && (
+              <Link className="cart-icon-link" href="/panier" aria-label="Panier">
+                <ShoppingBag aria-hidden="true" size={19} strokeWidth={2.2} />
+                <span>Panier</span>
+              </Link>
+            )}
             {isClientLoggedIn ? (
               <Link className="nav-user-link" href="/clients">
                 <span>Bonjour {clientLabel}</span>
@@ -97,9 +99,11 @@ export default function Header() {
             ) : !isLoggedIn ? (
               <Link href="/connexion-client">Inscription</Link>
             ) : null}
-            <Link href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}>
-              {isAdminLoggedIn ? "Interface admin" : "Admin"}
-            </Link>
+            {!isClientLoggedIn && (
+              <Link href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}>
+                {isAdminLoggedIn ? "Interface admin" : "Admin"}
+              </Link>
+            )}
             {isClientLoggedIn && <Link href="/suivi-commandes">Suivi</Link>}
             {isLoggedIn && (
               <Link href="/" onClick={handleLogout}>
@@ -148,17 +152,19 @@ export default function Header() {
               </ul>
               <p className="drawer-section">Comptes</p>
               <ul>
-                <li>
-                  <Link
-                    className="drawer-cart-link"
-                    href="/panier"
-                    aria-label="Panier"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <ShoppingBag aria-hidden="true" size={20} strokeWidth={2.2} />
-                    <span>Panier</span>
-                  </Link>
-                </li>
+                {!isAdminLoggedIn && (
+                  <li>
+                    <Link
+                      className="drawer-cart-link"
+                      href="/panier"
+                      aria-label="Panier"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <ShoppingBag aria-hidden="true" size={20} strokeWidth={2.2} />
+                      <span>Panier</span>
+                    </Link>
+                  </li>
+                )}
                 <li>
                   {isClientLoggedIn ? (
                     <Link
@@ -178,14 +184,16 @@ export default function Header() {
                     </Link>
                   ) : null}
                 </li>
-                <li>
-                  <Link
-                    href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {isAdminLoggedIn ? "Interface admin" : "Admin"}
-                  </Link>
-                </li>
+                {!isClientLoggedIn && (
+                  <li>
+                    <Link
+                      href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      {isAdminLoggedIn ? "Interface admin" : "Admin"}
+                    </Link>
+                  </li>
+                )}
                 {isClientLoggedIn && (
                   <li>
                     <Link

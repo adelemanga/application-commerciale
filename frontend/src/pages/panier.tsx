@@ -1,16 +1,12 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
 import Link from "next/link";
-import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import client from "../graphql/client";
 import {
   CANCEL_RESERVATION,
-  CONFIRM_STRIPE_CHECKOUT_SESSION,
-  CREATE_STRIPE_CHECKOUT_SESSION,
   DELETE_ARTICLE_FROM_RESERVATION,
-  SUBMIT_RESERVATION_TO_ADMIN,
 } from "../graphql/mutations";
 import {
   GET_CURRENT_RESERVATION_BY_USER_ID,
@@ -25,11 +21,9 @@ const formatPrice = (price?: number) =>
   }).format(price ?? 0);
 
 function PanierContent() {
-  const router = useRouter();
   const [message, setMessage] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [customerAddress, setCustomerAddress] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("card");
+  const [removingArticleId, setRemovingArticleId] = useState<string | null>(null);
+  const pendingArticleIds = useRef<Set<string>>(new Set());
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
   });
@@ -37,83 +31,63 @@ function PanierContent() {
     GET_CURRENT_RESERVATION_BY_USER_ID,
     { fetchPolicy: "network-only" }
   );
-  const [deleteArticleFromReservation, { loading: deleting }] = useMutation(
-    DELETE_ARTICLE_FROM_RESERVATION,
-    {
-      refetchQueries: [
-        { query: GET_CURRENT_RESERVATION_BY_USER_ID },
-        { query: GET_RESERVATIONS_BY_USER_ID },
-      ],
-    }
-  );
+  const [deleteArticleFromReservation] = useMutation(DELETE_ARTICLE_FROM_RESERVATION, {
+    refetchQueries: [
+      { query: GET_CURRENT_RESERVATION_BY_USER_ID },
+      { query: GET_RESERVATIONS_BY_USER_ID },
+    ],
+  });
   const [cancelReservation] = useMutation(CANCEL_RESERVATION, {
     refetchQueries: [
       { query: GET_CURRENT_RESERVATION_BY_USER_ID },
       { query: GET_RESERVATIONS_BY_USER_ID },
     ],
   });
-  const [submitReservationToAdmin, { loading: submitting }] = useMutation(
-    SUBMIT_RESERVATION_TO_ADMIN,
-    {
-      refetchQueries: [
-        { query: GET_CURRENT_RESERVATION_BY_USER_ID },
-        { query: GET_RESERVATIONS_BY_USER_ID },
-      ],
-    }
-  );
-  const [createStripeCheckoutSession, { loading: redirectingToStripe }] =
-    useMutation(CREATE_STRIPE_CHECKOUT_SESSION);
-  const [confirmStripeCheckoutSession] = useMutation(
-    CONFIRM_STRIPE_CHECKOUT_SESSION,
-    {
-      refetchQueries: [
-        { query: GET_CURRENT_RESERVATION_BY_USER_ID },
-        { query: GET_RESERVATIONS_BY_USER_ID },
-      ],
-    }
-  );
 
   const reservation = data?.getCurrentReservationByUserId?.reservation;
   const totalPrice = data?.getCurrentReservationByUserId?.totalPrice ?? 0;
-  const articles = reservation?.articles ?? [];
-  const isLoggedIn = userData?.whoAmI?.isLoggedIn;
-  const userPhone = userData?.whoAmI?.phone ?? "";
-  const userAddress = userData?.whoAmI?.address ?? "";
+  const articles = useMemo(
+    () => reservation?.articles ?? [],
+    [reservation?.articles]
+  );
+  const cartLines = useMemo(() => {
+    return articles.reduce((lines: any[], article: any) => {
+      const productId = article.product?.id || article.product?.name || article.id;
+      const existingLine = lines.find((line) => line.productId === productId);
 
-  useEffect(() => {
-    const sessionId = router.query.session_id;
-    const payment = router.query.payment;
-
-    if (payment === "cancelled") {
-      setMessage("Paiement annule. Votre panier est toujours disponible.");
-      router.replace("/panier", undefined, { shallow: true });
-      return;
-    }
-
-    if (typeof sessionId !== "string") {
-      return;
-    }
-
-    const confirmPayment = async () => {
-      try {
-        const response = await confirmStripeCheckoutSession({
-          variables: { sessionId },
-        });
-        const reservationId = response.data?.confirmStripeCheckoutSession?.id;
-        setMessage("Paiement Stripe confirme. Votre recu est disponible.");
-        router.replace(
-          reservationId ? `/suivi-commandes?commande=${reservationId}` : "/suivi-commandes"
-        );
-      } catch {
-        setMessage("Paiement non confirme par Stripe. Verifiez la transaction.");
+      if (existingLine) {
+        existingLine.articles.push(article);
+        existingLine.quantity += 1;
+        existingLine.lineTotal += article.product?.price ?? 0;
+        return lines;
       }
-    };
 
-    confirmPayment();
-  }, [confirmStripeCheckoutSession, refetch, router]);
+      lines.push({
+        productId,
+        product: article.product,
+        articles: [article],
+        quantity: 1,
+        lineTotal: article.product?.price ?? 0,
+      });
+
+      return lines;
+    }, []).sort((firstLine: any, secondLine: any) =>
+      String(firstLine.product?.name ?? "").localeCompare(
+        String(secondLine.product?.name ?? ""),
+        "fr"
+      )
+    );
+  }, [articles]);
+  const isLoggedIn = userData?.whoAmI?.isLoggedIn;
 
   const removeArticle = async (articleId: string) => {
+    if (pendingArticleIds.current.has(articleId)) {
+      return;
+    }
+
     setMessage("");
+    setRemovingArticleId(articleId);
+    pendingArticleIds.current.add(articleId);
 
     try {
       await deleteArticleFromReservation({
@@ -130,70 +104,9 @@ function PanierContent() {
       setMessage("Le produit a ete retire du panier.");
     } catch {
       setMessage("Impossible de retirer ce produit du panier.");
-    }
-  };
-
-  const sendOrderToAdmin = async () => {
-    if (!reservation?.id) {
-      setMessage("Ajoutez au moins un produit avant d'envoyer la commande.");
-      return;
-    }
-
-    const phoneToSend = customerPhone || userPhone;
-    const addressToSend = customerAddress || userAddress;
-
-    if (!phoneToSend || !addressToSend) {
-      setMessage("Ajoutez votre telephone et votre adresse avant d'envoyer la commande.");
-      return;
-    }
-
-    if (paymentMethod === "card") {
-      try {
-        const response = await createStripeCheckoutSession({
-          variables: {
-            reservationId: reservation.id,
-            customerPhone: phoneToSend,
-            customerAddress: addressToSend,
-          },
-        });
-        const checkoutUrl = response.data?.createStripeCheckoutSession?.url;
-
-        if (!checkoutUrl) {
-          throw new Error("Stripe checkout URL missing");
-        }
-
-        window.location.href = checkoutUrl;
-      } catch (error: any) {
-        const stripeMessage =
-          error?.graphQLErrors?.[0]?.message ||
-          error?.networkError?.message ||
-          error?.message;
-
-        setMessage(
-          stripeMessage
-            ? `Paiement Stripe impossible : ${stripeMessage}`
-            : "Impossible d'ouvrir le paiement Stripe. Verifiez les cles Stripe."
-        );
-      }
-      return;
-    }
-
-    try {
-      await submitReservationToAdmin({
-        variables: {
-          reservationId: reservation.id,
-          customerPhone: phoneToSend,
-          customerAddress: addressToSend,
-          paymentMethod,
-        },
-      });
-      await refetch();
-      setMessage(
-        "Commande envoyee. Le paiement se fera sur place."
-      );
-      router.push(`/suivi-commandes?commande=${reservation.id}`);
-    } catch {
-      setMessage("Impossible d'envoyer la commande a l'administrateur.");
+    } finally {
+      pendingArticleIds.current.delete(articleId);
+      setRemovingArticleId(null);
     }
   };
 
@@ -208,11 +121,13 @@ function PanierContent() {
         </p>
       </section>
 
-      {message && <p className="shop-message">{message}</p>}
-      {(loading || loadingUser) && (
-        <p className="shop-message">Chargement du panier...</p>
-      )}
-      {error && <p className="shop-message">Impossible de charger le panier.</p>}
+      <div className="shop-message-slot">
+        {message && <p className="shop-message">{message}</p>}
+        {(loading || loadingUser) && (
+          <p className="shop-message">Chargement du panier...</p>
+        )}
+        {error && <p className="shop-message">Impossible de charger le panier.</p>}
+      </div>
 
       {!isLoggedIn ? (
         <section className="empty-cart-panel">
@@ -225,21 +140,28 @@ function PanierContent() {
       ) : articles.length ? (
         <section className="cart-panel">
           <div className="cart-lines">
-            {articles.map((article: any) => (
-              <article className="cart-line" key={article.id}>
-                <img src={article.product.imgUrl} alt={article.product.name} />
+            {cartLines.map((line: any) => (
+              <article className="cart-line" key={line.productId}>
+                <img src={line.product.imgUrl} alt={line.product.name} />
                 <div>
-                  <h2>{article.product.name}</h2>
-                  <p>{article.product.price ? "Produit ajoute au panier." : ""}</p>
+                  <h2>{line.product.name}</h2>
+                  <div className="cart-line-meta">
+                    <span className="quantity-pill">
+                      Quantite <strong>{line.quantity}</strong>
+                    </span>
+                    <span>Prix unite : {formatPrice(line.product.price)}</span>
+                  </div>
                 </div>
-                <strong>{formatPrice(article.product.price)}</strong>
+                <strong className="cart-line-total">{formatPrice(line.lineTotal)}</strong>
                 <button
                   type="button"
                   className="danger-button"
-                  disabled={deleting}
-                  onClick={() => removeArticle(article.id)}
+                  disabled={removingArticleId === line.articles[0].id}
+                  onClick={() => removeArticle(line.articles[0].id)}
                 >
-                  Retirer
+                  {removingArticleId === line.articles[0].id
+                    ? "Retrait..."
+                    : "Retirer 1"}
                 </button>
               </article>
             ))}
@@ -247,69 +169,19 @@ function PanierContent() {
           <aside className="cart-total">
             <span>Total</span>
             <strong>{formatPrice(totalPrice)}</strong>
-            <label>
-              Telephone
-              <input
-                required
-                type="tel"
-                placeholder={userPhone || "Votre numero"}
-                value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
-              />
-            </label>
-            <label>
-              Adresse
-              <textarea
-                required
-                placeholder={userAddress || "Adresse de livraison"}
-                value={customerAddress}
-                onChange={(event) => setCustomerAddress(event.target.value)}
-              />
-            </label>
             <div className="payment-box">
-              <span>Paiement securise</span>
-              <div className="payment-choice">
-                <button
-                  type="button"
-                  className={paymentMethod === "card" ? "active" : ""}
-                  onClick={() => setPaymentMethod("card")}
-                >
-                  Carte bancaire
-                </button>
-                <button
-                  type="button"
-                  className={paymentMethod === "cash" ? "active" : ""}
-                  onClick={() => setPaymentMethod("cash")}
-                >
-                  Sur place
-                </button>
-              </div>
-              {paymentMethod === "card" ? (
-                <>
-                  <p>
-                    Le paiement par carte se fait sur la page securisee Stripe.
-                    Aucune donnee bancaire n'est saisie ni stockee sur ce site.
-                  </p>
-                </>
-              ) : (
-                <p>
-                  Reservation pour retrait boutique : aucun colis ne sera envoye.
-                  Le paiement se fera uniquement sur place.
-                </p>
-              )}
+              <span>Choisir livraison ou retrait</span>
+              <p>
+                Toutes les commandes sont payees par carte bancaire. Vous
+                choisirez ensuite la livraison a domicile, le point relais ou le
+                retrait en magasin.
+              </p>
             </div>
-            <button
-              type="button"
-              className="cart-submit-button"
-              disabled={submitting || redirectingToStripe}
-              onClick={sendOrderToAdmin}
-            >
-              {submitting || redirectingToStripe
-                ? "Validation en cours..."
-                : paymentMethod === "card"
-                  ? `Payer ${formatPrice(totalPrice)} avec Stripe`
-                  : "Reserver et payer sur place"}
-            </button>
+            <div className="cart-payment-actions">
+              <Link className="cart-submit-button" href="/paiement-carte">
+                Choisir livraison et payer
+              </Link>
+            </div>
             <Link href="/produits">Continuer mes achats</Link>
           </aside>
         </section>

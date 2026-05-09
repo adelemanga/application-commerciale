@@ -4,6 +4,7 @@ export interface Product {
   description: string;
   imgUrl: string;
   price?: number;
+  category?: string;
 }
 
 export interface ProductCard {
@@ -12,6 +13,7 @@ export interface ProductCard {
   description?: string;
   imgUrl?: string;
   price?: number;
+  category?: string;
 }
 
 export type EditProductModalProps = {
@@ -39,6 +41,7 @@ export interface EditProductFormValues {
   imgUrl: string;
   price: string;
   description: string;
+  category?: string;
 }
 
 export interface LoginFormValues {
@@ -56,6 +59,7 @@ export interface NewProductFormValues {
   imgUrl: string;
   price: string;
   description: string;
+  category?: string;
 }
 
 export type Article = {

@@ -64,6 +64,26 @@ export class Reservation extends BaseEntity {
 
   @Field({ nullable: true })
   @Column({ nullable: true })
+  pickupDate?: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  pickupTime?: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  deliveryMethod?: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  relayName?: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  relayAddress?: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
   stripeSessionId?: string;
 
   @Field(() => String, { nullable: true })

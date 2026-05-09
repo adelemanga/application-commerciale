@@ -156,9 +156,14 @@ function ConnexionClientContent() {
   return (
     <main className="auth-page client-auth-page">
       <section className="client-auth-layout">
-      <section className="auth-panel">
-        <p className="shop-kicker">Espace client</p>
-        <h1>Connexion client</h1>
+      <section className="auth-panel login-panel">
+        <p className="shop-kicker">Deja inscrit</p>
+        <h1>Je me connecte</h1>
+        <p className="auth-helper">
+          Vous avez deja un compte BeautyPlace ? Entrez votre email et votre
+          mot de passe pour retrouver votre profil, votre panier et vos
+          commandes.
+        </p>
         <form className="auth-form" onSubmit={submitLogin}>
           <label>
             Email
@@ -182,14 +187,18 @@ function ConnexionClientContent() {
           </label>
           {message && <p className="auth-error">{message}</p>}
           <button type="submit" disabled={loading}>
-            Se connecter
+            Acceder a mon compte
           </button>
         </form>
       </section>
 
-      <section className="auth-panel registration-panel">
-        <p className="shop-kicker">Nouveau compte</p>
-        <h1>Inscription client</h1>
+      <section className="auth-panel registration-panel client-registration-panel">
+        <p className="shop-kicker">Premiere visite</p>
+        <h1>Je cree mon compte</h1>
+        <p className="auth-helper">
+          Vous n'avez pas encore de compte ? Remplissez ce formulaire pour
+          enregistrer vos informations et suivre vos commandes plus facilement.
+        </p>
         <form className="auth-form" onSubmit={submitRegistration}>
           <label>
             Prenom
@@ -306,7 +315,7 @@ function ConnexionClientContent() {
           </label>
           {registerMessage && <p className="auth-error">{registerMessage}</p>}
           <button type="submit" disabled={registering}>
-            Creer mon compte
+            Creer mon compte client
           </button>
         </form>
       </section>

@@ -13,6 +13,28 @@ const formatPrice = (price?: number) =>
     currency: "EUR",
   }).format(price ?? 0);
 
+const groupArticlesByProduct = (articles: any[] = []) =>
+  articles.reduce((groups: any[], article: any) => {
+    const product = article.product ?? {};
+    const productKey = product.id ?? product.name ?? article.id;
+    const existingGroup = groups.find((group) => group.productKey === productKey);
+
+    if (existingGroup) {
+      existingGroup.quantity += 1;
+      existingGroup.total += product.price ?? 0;
+      return groups;
+    }
+
+    groups.push({
+      productKey,
+      product,
+      quantity: 1,
+      total: product.price ?? 0,
+    });
+
+    return groups;
+  }, []);
+
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString("fr-FR") : "Date non disponible";
 
@@ -28,6 +50,12 @@ const statusLabels: Record<string, string> = {
 const paymentLabels: Record<string, string> = {
   paid: "Payee",
   pending: "A payer",
+};
+
+const deliveryLabels: Record<string, string> = {
+  home: "Livraison a domicile",
+  relay: "Point relais",
+  store: "Retrait magasin",
 };
 
 const trackingSteps = [
@@ -245,6 +273,9 @@ function TrackingContent() {
       (item: any) => String(item.reservation.id) === selectedOrderId
     ) ?? paidOrSentOrders[0];
   const reservation = selectedOrder?.reservation;
+  const productLines = reservation
+    ? groupArticlesByProduct(reservation.articles)
+    : [];
   const trackingUrl = reservation
     ? getTrackingUrl(reservation.shippingCarrier, reservation.trackingNumber)
     : "";
@@ -252,6 +283,21 @@ function TrackingContent() {
     reservation?.paymentMethod === "card" &&
     reservation?.paymentStatus === "paid" &&
     Boolean(reservation?.stripeSessionId);
+  const deliveryMethod = reservation?.deliveryMethod || "home";
+  const isStorePickup = deliveryMethod === "store";
+  const deliveryLabel = deliveryLabels[deliveryMethod] || "Livraison a domicile";
+  const deliveryDetail =
+    deliveryMethod === "store"
+      ? reservation?.pickupDate
+        ? `${formatDate(reservation.pickupDate)}${
+            reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""
+          }`
+        : "Date de retrait a confirmer"
+      : deliveryMethod === "relay"
+      ? `${reservation?.relayName || "Point relais a confirmer"} - ${
+          reservation?.relayAddress || reservation?.customerAddress || "adresse a confirmer"
+        }`
+      : reservation?.customerAddress || userData?.whoAmI?.address || "Adresse a confirmer";
   const activeSteps = isOnlinePaid ? trackingSteps : pickupSteps;
   const activeStatusOrder = isOnlinePaid ? statusOrder : pickupStatusOrder;
   const currentStatusLabel = isOnlinePaid
@@ -283,17 +329,19 @@ function TrackingContent() {
       `Paiement : ${
         paymentLabels[reservation.paymentStatus] ?? reservation.paymentStatus
       }`,
-      isOnlinePaid
+      `Mode : ${deliveryLabel}`,
+      `Detail : ${deliveryDetail}`,
+      isOnlinePaid && !isStorePickup
         ? `Transporteur : ${reservation.shippingCarrier || "A definir"}`
-        : "Mode : retrait et paiement sur place",
-      isOnlinePaid
+        : "Transporteur : non concerne",
+      isOnlinePaid && !isStorePickup
         ? `Numero de suivi : ${reservation.trackingNumber || "A venir"}`
-        : "Expedition : aucun colis envoye",
+        : "Expedition : retrait en magasin",
       "",
       "Produits commandes :",
-      ...reservation.articles.map(
-        (article: any) =>
-          `- ${article.product.name} : ${formatPrice(article.product.price)}`
+      ...productLines.map(
+        (line) =>
+          `- ${line.product.name} x${line.quantity} : ${formatPrice(line.total)}`
       ),
       "",
       `Total facture : ${formatPrice(selectedOrder.totalPrice)}`,
@@ -399,10 +447,12 @@ function TrackingContent() {
             </div>
 
             <div className="parcel-status-card">
-              <span>{isOnlinePaid ? "Suivi colis actuel" : "Retrait sur place"}</span>
+              <span>{isStorePickup ? "Retrait magasin" : "Suivi colis actuel"}</span>
               <strong>{currentStatusLabel}</strong>
               <p>
-                {isOnlinePaid
+                {isStorePickup
+                  ? "Votre commande est payee et sera disponible en magasin selon le rendez-vous choisi."
+                  : isOnlinePaid
                   ? trackingHelp[reservation.status] ||
                     "Le statut sera mis a jour lorsque BeautyPlace modifiera la commande."
                   : "Cette commande est reservee pour un paiement sur place. Aucun colis ne sera envoye."}
@@ -419,7 +469,7 @@ function TrackingContent() {
               )}
             </div>
 
-            {isOnlinePaid ? (
+            {isOnlinePaid && !isStorePickup ? (
               <div className="tracking-number-card">
                 <span>Transporteur et numero</span>
                 <strong>{reservation.shippingCarrier || "Transporteur a venir"}</strong>
@@ -436,11 +486,10 @@ function TrackingContent() {
               </div>
             ) : (
               <div className="tracking-number-card">
-                <span>Retrait boutique</span>
-                <strong>Paiement sur place</strong>
+                <span>{deliveryLabel}</span>
+                <strong>{isStorePickup ? "Commande payee" : deliveryLabel}</strong>
                 <p>
-                  Votre commande est reservee. Elle ne sera pas expediee : vous
-                  pourrez regler et recuperer les produits sur place.
+                  {deliveryDetail}
                 </p>
               </div>
             )}
@@ -452,9 +501,9 @@ function TrackingContent() {
                 <p>{userData?.whoAmI?.email}</p>
               </div>
               <div>
-                <span>{isOnlinePaid ? "Livraison" : "Retrait"}</span>
+                <span>{deliveryLabel}</span>
                 <strong>{reservation.customerPhone || userData?.whoAmI?.phone}</strong>
-                <p>{reservation.customerAddress || userData?.whoAmI?.address}</p>
+                <p>{deliveryDetail}</p>
               </div>
               <div>
                 <span>Statut</span>
@@ -466,26 +515,27 @@ function TrackingContent() {
                 </p>
               </div>
               <div>
-                <span>{isOnlinePaid ? "Expedition" : "Mode"}</span>
+                <span>{isStorePickup ? "Retrait" : "Expedition"}</span>
                 <strong>
-                  {isOnlinePaid
+                  {isOnlinePaid && !isStorePickup
                     ? reservation.shippingCarrier || "A definir"
-                    : "Retrait sur place"}
+                    : deliveryLabel}
                 </strong>
                 <p>
-                  {isOnlinePaid
+                  {isOnlinePaid && !isStorePickup
                     ? reservation.trackingNumber || "Numero de suivi a venir"
-                    : "Aucun colis envoye"}
+                    : deliveryDetail}
                 </p>
               </div>
             </div>
 
             <div className="receipt-lines">
-              {reservation.articles.map((article: any) => (
-                <div className="receipt-line" key={article.id}>
-                  <img src={article.product.imgUrl} alt={article.product.name} />
-                  <span>{article.product.name}</span>
-                  <strong>{formatPrice(article.product.price)}</strong>
+              {productLines.map((line) => (
+                <div className="receipt-line" key={line.productKey}>
+                  <img src={line.product.imgUrl} alt={line.product.name} />
+                  <span>{line.product.name}</span>
+                  <span className="order-product-quantity">x{line.quantity}</span>
+                  <strong>{formatPrice(line.total)}</strong>
                 </div>
               ))}
             </div>

@@ -194,7 +194,9 @@ export class ReservationResolver {
     @Arg("reservationId", () => ID) reservationId: string,
     @Arg("customerPhone") customerPhone: string,
     @Arg("customerAddress") customerAddress: string,
-    @Arg("paymentMethod") paymentMethod: string
+    @Arg("paymentMethod") paymentMethod: string,
+    @Arg("pickupDate", { nullable: true }) pickupDate?: string,
+    @Arg("pickupTime", { nullable: true }) pickupTime?: string
   ) {
     let reservation = await Reservation.findOne({
       where: { id: reservationId },
@@ -205,10 +207,19 @@ export class ReservationResolver {
       throw new Error("Reservation not found");
     }
 
+    const cleanPickupDate = pickupDate?.trim() || undefined;
+    const cleanPickupTime = pickupTime?.trim() || undefined;
+
+    if (paymentMethod !== "card" && !cleanPickupDate) {
+      throw new Error("Choisissez une date de retrait sur place.");
+    }
+
     reservation.status = ReservationStatus.Submitted;
     reservation.customerPhone = customerPhone;
     reservation.customerAddress = customerAddress;
     reservation.paymentMethod = paymentMethod;
+    reservation.pickupDate = paymentMethod !== "card" ? cleanPickupDate : undefined;
+    reservation.pickupTime = paymentMethod !== "card" ? cleanPickupTime : undefined;
     reservation.paymentStatus =
       paymentMethod === "card" ? PaymentStatus.Paid : PaymentStatus.Pending;
     await reservation.save();
@@ -235,7 +246,13 @@ export class ReservationResolver {
     @Ctx() context: Context,
     @Arg("reservationId", () => ID) reservationId: string,
     @Arg("customerPhone") customerPhone: string,
-    @Arg("customerAddress") customerAddress: string
+    @Arg("customerAddress") customerAddress: string,
+    @Arg("deliveryMethod", { nullable: true }) deliveryMethod?: string,
+    @Arg("pickupDate", { nullable: true }) pickupDate?: string,
+    @Arg("pickupTime", { nullable: true }) pickupTime?: string,
+    @Arg("relayName", { nullable: true }) relayName?: string,
+    @Arg("relayAddress", { nullable: true }) relayAddress?: string,
+    @Arg("frontendUrl", { nullable: true }) frontendUrl?: string
   ) {
     if (!context.id) {
       throw new Error("User not authenticated");
@@ -258,11 +275,40 @@ export class ReservationResolver {
       throw new Error("Reservation not found");
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3002";
+    const cleanDeliveryMethod = deliveryMethod?.trim() || "home";
+    const cleanPickupDate = pickupDate?.trim() || undefined;
+    const cleanPickupTime = pickupTime?.trim() || undefined;
+    const cleanRelayName = relayName?.trim() || undefined;
+    const cleanRelayAddress = relayAddress?.trim() || undefined;
+
+    if (!["home", "store", "relay"].includes(cleanDeliveryMethod)) {
+      throw new Error("Invalid delivery method");
+    }
+
+    if (cleanDeliveryMethod === "store" && !cleanPickupDate) {
+      throw new Error("Choisissez une date de retrait en magasin.");
+    }
+
+    if (cleanDeliveryMethod === "relay" && (!cleanRelayName || !cleanRelayAddress)) {
+      throw new Error("Renseignez le point relais.");
+    }
+
+    const checkoutFrontendUrl =
+      frontendUrl?.startsWith("http://localhost") ||
+      frontendUrl?.startsWith("http://127.0.0.1") ||
+      frontendUrl?.startsWith("https://")
+        ? frontendUrl
+        : process.env.FRONTEND_URL || "http://localhost:3002";
     const params = new URLSearchParams();
     params.append("mode", "payment");
-    params.append("success_url", `${frontendUrl}/panier?session_id={CHECKOUT_SESSION_ID}`);
-    params.append("cancel_url", `${frontendUrl}/panier?payment=cancelled`);
+    params.append(
+      "success_url",
+      `${checkoutFrontendUrl}/paiement-carte?session_id={CHECKOUT_SESSION_ID}`
+    );
+    params.append(
+      "cancel_url",
+      `${checkoutFrontendUrl}/paiement-carte?payment=cancelled`
+    );
     params.append("customer_email", reservation.user.email);
     params.append("metadata[reservationId]", reservation.id);
 
@@ -302,6 +348,15 @@ export class ReservationResolver {
     reservation.paymentMethod = "card";
     reservation.paymentStatus = PaymentStatus.Pending;
     reservation.stripeSessionId = response.data.id;
+    reservation.deliveryMethod = cleanDeliveryMethod;
+    reservation.pickupDate =
+      cleanDeliveryMethod === "store" ? cleanPickupDate : undefined;
+    reservation.pickupTime =
+      cleanDeliveryMethod === "store" ? cleanPickupTime : undefined;
+    reservation.relayName =
+      cleanDeliveryMethod === "relay" ? cleanRelayName : undefined;
+    reservation.relayAddress =
+      cleanDeliveryMethod === "relay" ? cleanRelayAddress : undefined;
     await reservation.save();
 
     return { url: response.data.url };
