@@ -73,6 +73,9 @@ function AdminContent() {
   const [notice, setNotice] = useState("");
   const [imageInputKey, setImageInputKey] = useState(0);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
+  const [updatingStockProductId, setUpdatingStockProductId] = useState<string | null>(
+    null
+  );
   const productFormRef = useRef<HTMLFormElement | null>(null);
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS);
   const {
@@ -94,12 +97,9 @@ function AdminContent() {
   const [editProduct, { loading: editing }] = useMutation(EDIT_PRODUCT, {
     refetchQueries: [{ query: GET_ALL_PRODUCTS }],
   });
-  const [setProductStock, { loading: updatingStock }] = useMutation(
-    SET_PRODUCT_STOCK,
-    {
-      refetchQueries: [{ query: GET_ALL_PRODUCTS }],
-    }
-  );
+  const [setProductStock] = useMutation(SET_PRODUCT_STOCK, {
+    refetchQueries: [{ query: GET_ALL_PRODUCTS }],
+  });
   const [updateReservationAdmin] = useMutation(UPDATE_RESERVATION_ADMIN, {
     refetchQueries: [{ query: GET_ALL_RESERVATIONS }],
   });
@@ -264,6 +264,7 @@ function AdminContent() {
   const updateProductStock = async (product: ProductWithArticles) => {
     setNotice("");
     const quantity = Math.max(0, Number(stockInputs[product.id]) || 0);
+    setUpdatingStockProductId(product.id);
 
     try {
       await setProductStock({
@@ -278,6 +279,8 @@ function AdminContent() {
       setNotice(
         "Impossible de baisser ce stock : certaines unites sont deja dans des commandes."
       );
+    } finally {
+      setUpdatingStockProductId(null);
     }
   };
 
@@ -621,7 +624,7 @@ function AdminContent() {
               onChange={(event) => handleChange("stock", event.target.value)}
             />
           </label>
-          <button type="submit" disabled={creating || editing || updatingStock}>
+          <button type="submit" disabled={creating || editing}>
             {editingProductId ? "Enregistrer les modifications" : "Ajouter le produit"}
           </button>
           {editingProductId && (
@@ -673,10 +676,12 @@ function AdminContent() {
                   <button
                     type="button"
                     className="stock-update-button"
-                    disabled={updatingStock}
+                    disabled={updatingStockProductId === product.id}
                     onClick={() => updateProductStock(product)}
                   >
-                    Mettre a jour le stock
+                    {updatingStockProductId === product.id
+                      ? "Mise a jour..."
+                      : "Mettre a jour le stock"}
                   </button>
                 </div>
                 <div className="admin-actions">
