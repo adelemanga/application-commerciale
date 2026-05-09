@@ -100,6 +100,7 @@ export default function Header() {
             <Link href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}>
               {isAdminLoggedIn ? "Interface admin" : "Admin"}
             </Link>
+            {isClientLoggedIn && <Link href="/suivi-commandes">Suivi</Link>}
             {isLoggedIn && (
               <Link href="/" onClick={handleLogout}>
                 Deconnexion
@@ -185,6 +186,16 @@ export default function Header() {
                     {isAdminLoggedIn ? "Interface admin" : "Admin"}
                   </Link>
                 </li>
+                {isClientLoggedIn && (
+                  <li>
+                    <Link
+                      href="/suivi-commandes"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Suivi commandes
+                    </Link>
+                  </li>
+                )}
                 {isLoggedIn && (
                   <li>
                     <Link href="/" onClick={handleLogout}>

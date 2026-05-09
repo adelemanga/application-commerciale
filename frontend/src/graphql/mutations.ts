@@ -178,15 +178,21 @@ export const UPDATE_RESERVATION_ADMIN = gql`
     $reservationId: ID!
     $status: String!
     $paymentStatus: String!
+    $shippingCarrier: String
+    $trackingNumber: String
   ) {
     updateReservationAdmin(
       reservationId: $reservationId
       status: $status
       paymentStatus: $paymentStatus
+      shippingCarrier: $shippingCarrier
+      trackingNumber: $trackingNumber
     ) {
       id
       status
       paymentStatus
+      shippingCarrier
+      trackingNumber
     }
   }
 `;
@@ -237,6 +243,8 @@ export const CONFIRM_STRIPE_CHECKOUT_SESSION = gql`
       status
       paymentMethod
       paymentStatus
+      customerPhone
+      customerAddress
     }
   }
 `;
@@ -247,6 +255,21 @@ export const CANCEL_RESERVATION = gql`
       id
       status
     }
+  }
+`;
+
+export const CONFIRM_RESERVATION_RECEIVED = gql`
+  mutation ConfirmReservationReceived($reservationId: ID!) {
+    confirmReservationReceived(reservationId: $reservationId) {
+      id
+      status
+    }
+  }
+`;
+
+export const DELETE_TREATED_RESERVATION_ADMIN = gql`
+  mutation DeleteTreatedReservationAdmin($reservationId: ID!) {
+    deleteTreatedReservationAdmin(reservationId: $reservationId)
   }
 `;
 

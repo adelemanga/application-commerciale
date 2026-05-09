@@ -122,6 +122,11 @@ export const GET_RESERVATIONS_BY_USER_ID = gql`
         status
         paymentMethod
         paymentStatus
+        stripeSessionId
+        customerPhone
+        customerAddress
+        shippingCarrier
+        trackingNumber
         articles {
           id
           product {
@@ -164,6 +169,8 @@ export const GET_CURRENT_RESERVATION_BY_USER_ID = gql`
         endDate
         id
         createdAt
+        shippingCarrier
+        trackingNumber
         articles {
           id
           product {
@@ -211,6 +218,9 @@ export const GET_ALL_RESERVATIONS = gql`
       customerAddress
       paymentMethod
       paymentStatus
+      stripeSessionId
+      shippingCarrier
+      trackingNumber
       user {
         email
         firstname

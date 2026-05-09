@@ -1,7 +1,14 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import client from "../graphql/client";
@@ -50,8 +57,9 @@ const statusLabels: Record<string, string> = {
   pending: "pending",
   submitted: "submitted",
   validated: "validee",
-  ongoing: "preparation",
-  ended: "terminee",
+  ongoing: "preparation colis",
+  shipped: "colis envoye",
+  ended: "livree / terminee",
 };
 
 const paymentLabels: Record<string, string> = {
@@ -65,6 +73,7 @@ function AdminContent() {
   const [notice, setNotice] = useState("");
   const [imageInputKey, setImageInputKey] = useState(0);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
+  const productFormRef = useRef<HTMLFormElement | null>(null);
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS);
   const {
     data: reservationsData,
@@ -100,7 +109,23 @@ function AdminContent() {
     [data]
   );
 
-  const reservations = reservationsData?.getAllReservations ?? [];
+  const reservations = (reservationsData?.getAllReservations ?? []).filter(
+    (reservation: any) => {
+      const total = reservation.articles.reduce(
+        (sum: number, article: any) => sum + (article.product?.price ?? 0),
+        0
+      );
+      const isTreatedPickup =
+        reservation.paymentStatus === "paid" && !reservation.stripeSessionId;
+
+      return (
+        reservation.articles.length > 0 &&
+        total > 0 &&
+        reservation.status !== "ended" &&
+        !isTreatedPickup
+      );
+    }
+  );
 
   useEffect(() => {
     setStockInputs((current) => {
@@ -248,6 +273,7 @@ function AdminContent() {
         },
       });
       setNotice(`Stock de ${product.name} mis a jour a ${quantity}.`);
+      setStockInputs((current) => ({ ...current, [product.id]: String(quantity) }));
     } catch {
       setNotice(
         "Impossible de baisser ce stock : certaines unites sont deja dans des commandes."
@@ -266,12 +292,20 @@ function AdminContent() {
       stock: String(product.articles?.length ?? 0),
     });
     setImageInputKey((current) => current + 1);
+    window.setTimeout(() => {
+      productFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
   };
 
   const updateOrder = async (
     reservationId: string,
     status: string,
-    paymentStatus: string
+    paymentStatus: string,
+    shippingCarrier = "",
+    trackingNumber = ""
   ) => {
     setNotice("");
     try {
@@ -280,6 +314,8 @@ function AdminContent() {
           reservationId,
           status,
           paymentStatus,
+          shippingCarrier,
+          trackingNumber,
         },
       });
       setNotice("Commande mise a jour.");
@@ -299,6 +335,7 @@ function AdminContent() {
         </p>
         <div className="admin-shortcuts">
           <a href="#commandes-clients">Reservations</a>
+          <Link href="/admin-commandes-traitees">Commandes traitees</Link>
           <a href="#gestion-produits">Produits</a>
           <Link href="/inscription-administrateur">Nouvel admin</Link>
         </div>
@@ -312,7 +349,7 @@ function AdminContent() {
             <p className="shop-kicker">Commandes</p>
             <h2>Liste des reservations</h2>
           </div>
-          <strong>{reservations.length} commande(s)</strong>
+          <strong>{reservations.length} a traiter</strong>
         </div>
         {loadingReservations && <p>Chargement des commandes...</p>}
         {reservationsError && <p>Impossible de charger les commandes.</p>}
@@ -325,6 +362,13 @@ function AdminContent() {
               (sum: number, article: any) => sum + (article.product?.price ?? 0),
               0
             );
+            const isOnlinePaid =
+              reservation.paymentMethod === "card" &&
+              reservation.paymentStatus === "paid" &&
+              Boolean(reservation.stripeSessionId);
+            const hasOnlinePaymentIntent =
+              reservation.paymentMethod === "card" &&
+              Boolean(reservation.stripeSessionId);
 
             return (
               <article className="order-row" key={reservation.id}>
@@ -392,15 +436,24 @@ function AdminContent() {
                         updateOrder(
                           reservation.id,
                           event.target.value,
-                          reservation.paymentStatus
+                          reservation.paymentStatus,
+                          isOnlinePaid ? reservation.shippingCarrier || "" : "",
+                          isOnlinePaid ? reservation.trackingNumber || "" : ""
                         )
                       }
                     >
                       <option value="pending">pending - panier</option>
-                      <option value="submitted">submitted - envoyee</option>
-                      <option value="validated">validated - validee</option>
-                      <option value="ongoing">ongoing - preparation</option>
-                      <option value="ended">ended - terminee / annulee</option>
+                      <option value="submitted">submitted - commande recue</option>
+                      <option value="validated">validated - validee admin</option>
+                      <option value="ongoing">
+                        ongoing - {isOnlinePaid ? "preparation colis" : "preparation retrait"}
+                      </option>
+                      {isOnlinePaid && (
+                        <option value="shipped">shipped - colis envoye</option>
+                      )}
+                      <option value="ended">
+                        ended - {isOnlinePaid ? "colis livre" : "retiree sur place"}
+                      </option>
                     </select>
                   </label>
                   <label>
@@ -410,17 +463,91 @@ function AdminContent() {
                       onChange={(event) =>
                         updateOrder(
                           reservation.id,
-                          reservation.status,
-                          event.target.value
+                          !hasOnlinePaymentIntent && event.target.value === "paid"
+                            ? "ended"
+                            : reservation.status,
+                          event.target.value,
+                          hasOnlinePaymentIntent && event.target.value === "paid"
+                            ? reservation.shippingCarrier || ""
+                            : "",
+                          hasOnlinePaymentIntent && event.target.value === "paid"
+                            ? reservation.trackingNumber || ""
+                            : ""
                         )
                       }
                     >
                       <option value="pending">pending - a payer</option>
-                      <option value="paid">paid - paye</option>
+                      <option value="paid">
+                        {hasOnlinePaymentIntent
+                          ? "paid - paye"
+                          : "paid - paye et retire sur place"}
+                      </option>
                     </select>
                   </label>
+
+                  {isOnlinePaid ? (
+                    <>
+                      <label>
+                        Transporteur
+                        <select
+                          value={reservation.shippingCarrier || ""}
+                          onChange={(event) =>
+                            updateOrder(
+                              reservation.id,
+                              reservation.status,
+                              reservation.paymentStatus,
+                              event.target.value,
+                              reservation.trackingNumber || ""
+                            )
+                          }
+                        >
+                          <option value="">A definir</option>
+                          <option value="La Poste">La Poste</option>
+                          <option value="Colissimo">Colissimo</option>
+                          <option value="Chronopost">Chronopost</option>
+                          <option value="Mondial Relay">Mondial Relay</option>
+                          <option value="DHL">DHL</option>
+                          <option value="UPS">UPS</option>
+                          <option value="Express">Express</option>
+                        </select>
+                      </label>
+                      <label>
+                        Numero de suivi
+                        <input
+                          defaultValue={reservation.trackingNumber || ""}
+                          placeholder="Ex: 8N12345678901"
+                          onBlur={(event) =>
+                            updateOrder(
+                              reservation.id,
+                              reservation.status,
+                              reservation.paymentStatus,
+                              reservation.shippingCarrier || "",
+                              event.target.value
+                            )
+                          }
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <p className="admin-tracking-summary">
+                      Retrait sur place : aucun colis n'est envoye tant que le
+                      paiement n'est pas fait en ligne.
+                    </p>
+                  )}
+
+                  {isOnlinePaid &&
+                    (reservation.shippingCarrier || reservation.trackingNumber) && (
+                    <p className="admin-tracking-summary">
+                      {reservation.shippingCarrier || "Transporteur a definir"} -{" "}
+                      {reservation.trackingNumber || "numero a renseigner"}
+                    </p>
+                  )}
                   <span className="status-pill payment-pill">
-                    {reservation.paymentMethod === "card" ? "Carte" : "Livraison"}
+                    {isOnlinePaid
+                      ? "Compte administrateur paye automatiquement"
+                      : hasOnlinePaymentIntent
+                      ? "Paiement CB"
+                      : "Paiement sur place"}
                   </span>
                 </div>
               </article>
@@ -430,8 +557,13 @@ function AdminContent() {
       </section>
 
       <section className="admin-layout" id="gestion-produits">
-        <form className="admin-form" onSubmit={submitProduct}>
+        <form className="admin-form" onSubmit={submitProduct} ref={productFormRef}>
           <h2>{editingProductId ? "Modifier le produit" : "Nouveau produit"}</h2>
+          {editingProductId && (
+            <p className="admin-editing-note">
+              Produit en modification : validez le formulaire pour enregistrer.
+            </p>
+          )}
           <label>
             Nom
             <input
@@ -442,7 +574,7 @@ function AdminContent() {
             />
           </label>
           <label>
-            Description
+            Description du produit
             <textarea
               required
               value={form.description}
@@ -519,12 +651,15 @@ function AdminContent() {
                 <img src={product.imgUrl} alt={product.name} />
                 <div>
                   <h3>{product.name}</h3>
+                  <p className="admin-product-description">{product.description}</p>
                   <p>{formatPrice(product.price)}</p>
-                  <p>{product.articles?.length ?? 0} article(s) en stock</p>
+                  <p className="stock-count">
+                    Stock actuel : <strong>{product.articles?.length ?? 0}</strong>
+                  </p>
                 </div>
                 <div className="stock-editor">
                   <label>
-                    Quantite stock
+                    Stock souhaite
                     <input
                       type="number"
                       min="0"
@@ -537,18 +672,20 @@ function AdminContent() {
                   </label>
                   <button
                     type="button"
+                    className="stock-update-button"
                     disabled={updatingStock}
                     onClick={() => updateProductStock(product)}
                   >
-                    Definir stock
+                    Mettre a jour le stock
                   </button>
                 </div>
                 <div className="admin-actions">
                   <button
                     type="button"
+                    className="secondary-button"
                     onClick={() => startEditingProduct(product)}
                   >
-                    Modifier
+                    Modifier ce produit
                   </button>
                   <button type="button" onClick={() => addStock(product.id)}>
                     Ajouter stock

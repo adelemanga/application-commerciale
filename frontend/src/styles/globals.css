@@ -249,6 +249,295 @@ h1 {
   font-weight: 850;
 }
 
+/* Tracking and receipts */
+.tracking-layout {
+  width: min(1180px, calc(100% - 28px));
+  margin: 28px auto;
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.tracking-list,
+.receipt-card {
+  background: var(--panel);
+  border: 1px solid rgba(94, 47, 79, 0.12);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+
+.tracking-list {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.tracking-list h2,
+.receipt-card h2 {
+  margin: 0;
+}
+
+.tracking-order {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.1);
+  border-radius: 8px;
+}
+
+.tracking-order.active {
+  color: #ffffff;
+  background: var(--plum);
+}
+
+.tracking-order small {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.receipt-card {
+  padding: clamp(18px, 3vw, 30px);
+}
+
+.receipt-header,
+.receipt-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.receipt-header button,
+.receipt-actions a {
+  min-height: 40px;
+  padding: 0 16px;
+  color: #ffffff;
+  background: var(--plum);
+  font-weight: 850;
+}
+
+.receipt-actions a {
+  display: inline-flex;
+  align-items: center;
+  background: var(--rose);
+}
+
+.receipt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.receipt-actions button:first-child {
+  background: var(--rose);
+}
+
+.tracking-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 22px 0;
+}
+
+.tracking-step {
+  min-height: 112px;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 12px;
+  color: var(--muted);
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.12);
+  border-radius: 8px;
+}
+
+.tracking-step span {
+  font-size: 0.82rem;
+  font-weight: 820;
+  color: var(--plum);
+}
+
+.tracking-step p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.tracking-step.done,
+.tracking-step.current {
+  color: #ffffff;
+}
+
+.tracking-step.done {
+  background: var(--sage);
+}
+
+.tracking-step.current {
+  background: var(--plum);
+  box-shadow: 0 12px 26px rgba(94, 47, 79, 0.18);
+}
+
+.tracking-step.done span,
+.tracking-step.current span {
+  color: #ffffff;
+}
+
+.parcel-status-card {
+  margin: 0 0 18px;
+  padding: 16px;
+  background: var(--sage-soft);
+  border: 1px solid rgba(127, 154, 136, 0.3);
+  border-radius: 8px;
+}
+
+.parcel-status-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.parcel-status-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--plum);
+  font-size: 1.1rem;
+}
+
+.parcel-status-card p {
+  margin: 7px 0 0;
+  color: var(--ink);
+}
+
+.tracking-number-card {
+  margin: 0 0 18px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.12);
+  border-radius: 8px;
+}
+
+.tracking-number-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.tracking-number-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--plum);
+  font-size: 1.05rem;
+}
+
+.tracking-number-card p {
+  margin: 7px 0 0;
+  color: var(--ink);
+}
+
+.tracking-number-card a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  margin-top: 12px;
+  padding: 0 14px;
+  color: #ffffff;
+  background: var(--plum);
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.received-button {
+  min-height: 40px;
+  margin-top: 12px;
+  padding: 0 16px;
+  color: #ffffff;
+  background: var(--rose);
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.receipt-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.receipt-grid div {
+  min-width: 0;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.1);
+  border-radius: 8px;
+}
+
+.receipt-grid span,
+.receipt-total span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.receipt-grid strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--plum);
+}
+
+.receipt-grid p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.receipt-lines {
+  display: grid;
+  gap: 10px;
+  margin: 22px 0;
+}
+
+.receipt-line {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(94, 47, 79, 0.1);
+  border-radius: 8px;
+}
+
+.receipt-line img {
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+}
+
+.receipt-total {
+  padding-top: 18px;
+  border-top: 2px solid rgba(94, 47, 79, 0.14);
+}
+
+.receipt-total strong {
+  color: var(--plum);
+  font-size: 1.4rem;
+}
+
+.receipt-note {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 /* Navigation */
 .navbar {
   position: sticky;
@@ -632,6 +921,7 @@ main,
 .cart-total input,
 .cart-total textarea,
 .cart-total select,
+.order-statuses input,
 .order-statuses select,
 .form-group input,
 .form-group textarea,
@@ -656,6 +946,7 @@ main,
 .cart-total input:focus,
 .cart-total textarea:focus,
 .cart-total select:focus,
+.order-statuses input:focus,
 .order-statuses select:focus,
 .form-group input:focus,
 .form-group textarea:focus,
@@ -1355,6 +1646,32 @@ form button:hover,
   color: var(--plum);
 }
 
+.admin-product-description {
+  display: -webkit-box;
+  margin: 0 0 8px;
+  overflow: hidden;
+  color: #6f5c67;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.admin-editing-note {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--plum);
+  background: #fff4e7;
+  border: 1px solid rgba(94, 47, 79, 0.14);
+  border-radius: 6px;
+  font-weight: 800;
+}
+
+.stock-count {
+  color: #6f5c67;
+  font-weight: 800;
+}
+
 .admin-actions {
   display: flex;
   justify-content: flex-end;
@@ -1383,6 +1700,18 @@ form button:hover,
   background: #fffaf4;
   border: 1px solid #dfc8bf;
   border-radius: 6px;
+}
+
+.stock-update-button {
+  width: 100%;
+  min-height: 42px;
+  background: var(--plum);
+  box-shadow: 0 8px 18px rgba(94, 47, 79, 0.18);
+}
+
+.stock-update-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .admin-actions .danger-button {
@@ -1474,6 +1803,16 @@ form button:hover,
 .order-statuses {
   display: grid;
   gap: 8px;
+}
+
+.admin-tracking-summary {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  color: var(--plum);
+  background: var(--champagne);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-weight: 800;
 }
 
 .admin-mini-label {
@@ -2547,6 +2886,15 @@ footer a {
   .order-row,
   .cart-panel {
     grid-template-columns: 1fr;
+  }
+
+  .tracking-layout,
+  .receipt-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-steps {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .order-summary {

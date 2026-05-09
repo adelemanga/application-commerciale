@@ -303,6 +303,11 @@ function ClientsContent() {
                       Statut : {item.reservation.status} - Total :{" "}
                       {item.totalPrice} EUR
                     </p>
+                    {item.reservation.status !== "pending" && (
+                      <Link href={`/suivi-commandes?commande=${item.reservation.id}`}>
+                        Voir le recu et le suivi
+                      </Link>
+                    )}
                   </div>
                   <ul>
                     {item.reservation.articles.map((article: any) => (

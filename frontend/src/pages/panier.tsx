@@ -96,12 +96,14 @@ function PanierContent() {
 
     const confirmPayment = async () => {
       try {
-        await confirmStripeCheckoutSession({
+        const response = await confirmStripeCheckoutSession({
           variables: { sessionId },
         });
-        await refetch();
-        setMessage("Paiement Stripe confirme. La commande est envoyee a l'administrateur.");
-        router.replace("/panier", undefined, { shallow: true });
+        const reservationId = response.data?.confirmStripeCheckoutSession?.id;
+        setMessage("Paiement Stripe confirme. Votre recu est disponible.");
+        router.replace(
+          reservationId ? `/suivi-commandes?commande=${reservationId}` : "/suivi-commandes"
+        );
       } catch {
         setMessage("Paiement non confirme par Stripe. Verifiez la transaction.");
       }
@@ -189,6 +191,7 @@ function PanierContent() {
       setMessage(
         "Commande envoyee. Le paiement se fera sur place."
       );
+      router.push(`/suivi-commandes?commande=${reservation.id}`);
     } catch {
       setMessage("Impossible d'envoyer la commande a l'administrateur.");
     }
@@ -289,7 +292,10 @@ function PanierContent() {
                   </p>
                 </>
               ) : (
-                <p>Le client reglera directement sur place. La commande sera marquee a payer.</p>
+                <p>
+                  Reservation pour retrait boutique : aucun colis ne sera envoye.
+                  Le paiement se fera uniquement sur place.
+                </p>
               )}
             </div>
             <button
@@ -302,7 +308,7 @@ function PanierContent() {
                 ? "Validation en cours..."
                 : paymentMethod === "card"
                   ? `Payer ${formatPrice(totalPrice)} avec Stripe`
-                  : "Envoyer et payer sur place"}
+                  : "Reserver et payer sur place"}
             </button>
             <Link href="/produits">Continuer mes achats</Link>
           </aside>

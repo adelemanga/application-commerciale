@@ -9,7 +9,6 @@ export default function Food() {
     <ApolloProvider client={client}>
       <div>
         <Header />
-        <h1>A propos de moi !</h1>
         <AboutMe />
         <Footer />
       </div>
