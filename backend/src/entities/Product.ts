@@ -33,7 +33,7 @@ export class Product extends BaseEntity {
   imgUrl: string;
 
   @Field()
-  @Column()
+  @Column("float")
   price: number;
 
   @Field(() => [Article], { nullable: true })

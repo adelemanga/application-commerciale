@@ -28,7 +28,7 @@ const projects = [
     title: "Mon portfolio 2025",
     img: "https://i.imgur.com/i1xekKH.png",
     description: "Potfolio animé et fluide.",
-    link: "#",
+    link: "https://adelemanga-portfolio2026-ejxy-35kv78n7l.vercel.app/",
     technologies: [
       "React",
       "Node.js",

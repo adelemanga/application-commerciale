@@ -214,6 +214,33 @@ export const SUBMIT_RESERVATION_TO_ADMIN = gql`
   }
 `;
 
+export const CREATE_STRIPE_CHECKOUT_SESSION = gql`
+  mutation CreateStripeCheckoutSession(
+    $reservationId: ID!
+    $customerPhone: String!
+    $customerAddress: String!
+  ) {
+    createStripeCheckoutSession(
+      reservationId: $reservationId
+      customerPhone: $customerPhone
+      customerAddress: $customerAddress
+    ) {
+      url
+    }
+  }
+`;
+
+export const CONFIRM_STRIPE_CHECKOUT_SESSION = gql`
+  mutation ConfirmStripeCheckoutSession($sessionId: String!) {
+    confirmStripeCheckoutSession(sessionId: $sessionId) {
+      id
+      status
+      paymentMethod
+      paymentStatus
+    }
+  }
+`;
+
 export const CANCEL_RESERVATION = gql`
   mutation CancelReservation($reservationId: ID!) {
     cancelReservation(reservationId: $reservationId) {

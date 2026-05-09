@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLazyQuery, useQuery } from "@apollo/client";
+import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { LOGOUT, WHO_AM_I } from "../graphql/queries";
@@ -37,6 +38,9 @@ export default function Header() {
   const isAdminLoggedIn = isLoggedIn && user?.role === Role.Admin;
   const clientName = [user?.firstname, user?.lastname].filter(Boolean).join(" ");
   const clientLabel = clientName || user?.email || "Mon compte client";
+  const profileImage =
+    user?.avatarUrl ||
+    "https://img.freepik.com/premium-vector/default-avatar-profile-icon-vector-social-media-user-image_543062-212.jpg";
 
   useEffect(() => {
     const handleResize = () => {
@@ -81,10 +85,14 @@ export default function Header() {
             ))}
           </div>
           <div className="nav-actions">
-            <Link href="/panier">Panier</Link>
+            <Link className="cart-icon-link" href="/panier" aria-label="Panier">
+              <ShoppingBag aria-hidden="true" size={19} strokeWidth={2.2} />
+              <span>Panier</span>
+            </Link>
             {isClientLoggedIn ? (
               <Link className="nav-user-link" href="/clients">
-                Bonjour {clientLabel}
+                <span>Bonjour {clientLabel}</span>
+                <img src={profileImage} alt="" aria-hidden="true" />
               </Link>
             ) : !isLoggedIn ? (
               <Link href="/connexion-client">Inscription</Link>
@@ -140,14 +148,25 @@ export default function Header() {
               <p className="drawer-section">Comptes</p>
               <ul>
                 <li>
-                  <Link href="/panier" onClick={() => setIsOpen(false)}>
-                    Panier
+                  <Link
+                    className="drawer-cart-link"
+                    href="/panier"
+                    aria-label="Panier"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <ShoppingBag aria-hidden="true" size={20} strokeWidth={2.2} />
+                    <span>Panier</span>
                   </Link>
                 </li>
                 <li>
                   {isClientLoggedIn ? (
-                    <Link href="/clients" onClick={() => setIsOpen(false)}>
-                      Bonjour {clientLabel}
+                    <Link
+                      className="drawer-user-link"
+                      href="/clients"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <span>Bonjour {clientLabel}</span>
+                      <img src={profileImage} alt="" aria-hidden="true" />
                     </Link>
                   ) : !isLoggedIn ? (
                     <Link

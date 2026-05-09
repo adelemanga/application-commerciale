@@ -61,6 +61,10 @@ export class Reservation extends BaseEntity {
   @Column({ nullable: true })
   paymentMethod?: string;
 
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  stripeSessionId?: string;
+
   @Field()
   @Column({ default: PaymentStatus.Pending })
   paymentStatus: PaymentStatus;

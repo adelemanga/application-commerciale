@@ -18,6 +18,7 @@ import {
 import { calculateTotal } from "../../utils/reservation/CalculateTotal";
 import { Article } from "../entities/Article";
 import { sendOrderEmails } from "../services/orderEmail";
+import axios from "axios";
 
 // custom object created to send the totalPrice along with the reservation data
 @ObjectType()
@@ -27,6 +28,12 @@ export class ReservationWithTotal {
 
   @Field(() => Number)
   totalPrice: number;
+}
+
+@ObjectType()
+class StripeCheckoutSession {
+  @Field()
+  url: string;
 }
 
 @InputType()
@@ -209,6 +216,141 @@ export class ReservationResolver {
     } catch (error) {
       console.warn(
         "Commande enregistree, mais email non envoye. Verifiez la configuration Gmail.",
+        error
+      );
+    }
+
+    return reservation;
+  }
+
+  @Mutation(() => StripeCheckoutSession)
+  async createStripeCheckoutSession(
+    @Ctx() context: Context,
+    @Arg("reservationId", () => ID) reservationId: string,
+    @Arg("customerPhone") customerPhone: string,
+    @Arg("customerAddress") customerAddress: string
+  ) {
+    if (!context.id) {
+      throw new Error("User not authenticated");
+    }
+
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      throw new Error("Stripe is not configured");
+    }
+
+    const reservation = await Reservation.findOne({
+      where: {
+        id: reservationId,
+        user: { id: context.id },
+      },
+      relations: ["user", "articles", "articles.product"],
+    });
+
+    if (!reservation || reservation.articles.length === 0) {
+      throw new Error("Reservation not found");
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3002";
+    const params = new URLSearchParams();
+    params.append("mode", "payment");
+    params.append("success_url", `${frontendUrl}/panier?session_id={CHECKOUT_SESSION_ID}`);
+    params.append("cancel_url", `${frontendUrl}/panier?payment=cancelled`);
+    params.append("customer_email", reservation.user.email);
+    params.append("metadata[reservationId]", reservation.id);
+
+    reservation.articles.forEach((article, index) => {
+      params.append(`line_items[${index}][quantity]`, "1");
+      params.append(
+        `line_items[${index}][price_data][currency]`,
+        "eur"
+      );
+      params.append(
+        `line_items[${index}][price_data][unit_amount]`,
+        String(Math.round(article.product.price * 100))
+      );
+      params.append(
+        `line_items[${index}][price_data][product_data][name]`,
+        article.product.name
+      );
+      params.append(
+        `line_items[${index}][price_data][product_data][description]`,
+        article.product.description ?? "Produit beaute"
+      );
+    });
+
+    const response = await axios.post(
+      "https://api.stripe.com/v1/checkout/sessions",
+      params,
+      {
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
+
+    reservation.customerPhone = customerPhone;
+    reservation.customerAddress = customerAddress;
+    reservation.paymentMethod = "card";
+    reservation.paymentStatus = PaymentStatus.Pending;
+    reservation.stripeSessionId = response.data.id;
+    await reservation.save();
+
+    return { url: response.data.url };
+  }
+
+  @Mutation(() => Reservation)
+  async confirmStripeCheckoutSession(
+    @Ctx() context: Context,
+    @Arg("sessionId") sessionId: string
+  ) {
+    if (!context.id) {
+      throw new Error("User not authenticated");
+    }
+
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      throw new Error("Stripe is not configured");
+    }
+
+    const response = await axios.get(
+      `https://api.stripe.com/v1/checkout/sessions/${sessionId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+        },
+      }
+    );
+
+    const reservationId = response.data.metadata?.reservationId;
+    const reservation = await Reservation.findOne({
+      where: {
+        id: reservationId,
+        user: { id: context.id },
+      },
+      relations: ["user", "articles", "articles.product"],
+    });
+
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    if (response.data.payment_status !== "paid") {
+      throw new Error("Payment not completed");
+    }
+
+    reservation.status = ReservationStatus.Submitted;
+    reservation.paymentMethod = "card";
+    reservation.paymentStatus = PaymentStatus.Paid;
+    reservation.stripeSessionId = sessionId;
+    await reservation.save();
+
+    try {
+      await sendOrderEmails(reservation);
+    } catch (error) {
+      console.warn(
+        "Commande payee, mais email non envoye. Verifiez la configuration Gmail.",
         error
       );
     }
