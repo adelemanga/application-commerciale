@@ -57,6 +57,15 @@ function ClientsContent() {
   const isClient = isLoggedIn && user?.role === Role.User;
   const isAdmin = isLoggedIn && user?.role === Role.Admin;
   const orderHistory = historyData?.getReservationsByUserId ?? [];
+  const paidOrderHistory = orderHistory.filter((item: any) => {
+    const reservation = item.reservation;
+
+    return (
+      reservation?.paymentStatus === "paid" &&
+      (reservation?.articles?.length ?? 0) > 0 &&
+      item.totalPrice > 0
+    );
+  });
   const likedProducts = products.filter((product) =>
     likedProductIds.includes(product.id)
   );
@@ -224,7 +233,7 @@ function ClientsContent() {
             </div>
           </div>
           <div className="client-profile-stats">
-            <strong>{orderHistory.length}</strong>
+            <strong>{paidOrderHistory.length}</strong>
             <span>commande(s)</span>
           </div>
           <div className="client-profile-stats">
@@ -336,9 +345,9 @@ function ClientsContent() {
       <section className="client-space-grid">
         <article className="client-panel">
           <h2>Historique des commandes</h2>
-          {orderHistory.length ? (
+          {paidOrderHistory.length ? (
             <div className="client-history-list">
-              {orderHistory.map((item: any) => (
+              {paidOrderHistory.map((item: any) => (
                 <div className="client-history-card" key={item.reservation.id}>
                   <div>
                     <strong>

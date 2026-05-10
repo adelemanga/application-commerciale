@@ -263,15 +263,19 @@ function TrackingContent() {
 
   const isLoggedIn = Boolean(userData?.whoAmI?.isLoggedIn);
   const orders = data?.getReservationsByUserId ?? [];
-  const paidOrSentOrders = orders.filter((item: any) =>
-    ["submitted", "validated", "ongoing", "shipped", "ended"].includes(
-      item.reservation.status
-    )
-  );
+  const paidOrders = orders.filter((item: any) => {
+    const reservation = item.reservation;
+
+    return (
+      reservation?.paymentStatus === "paid" &&
+      (reservation?.articles?.length ?? 0) > 0 &&
+      item.totalPrice > 0
+    );
+  });
   const selectedOrder =
-    paidOrSentOrders.find(
+    paidOrders.find(
       (item: any) => String(item.reservation.id) === selectedOrderId
-    ) ?? paidOrSentOrders[0];
+    ) ?? paidOrders[0];
   const reservation = selectedOrder?.reservation;
   const productLines = reservation
     ? groupArticlesByProduct(reservation.articles)
@@ -394,7 +398,7 @@ function TrackingContent() {
         <section className="tracking-layout">
           <aside className="tracking-list">
             <h2>Mes commandes</h2>
-            {paidOrSentOrders.map((item: any) => (
+            {paidOrders.map((item: any) => (
               <Link
                 className={
                   item.reservation.id === reservation.id
@@ -555,8 +559,11 @@ function TrackingContent() {
         </section>
       ) : (
         <section className="empty-cart-panel">
-          <h2>Aucune commande envoyee</h2>
-          <p>Validez votre panier pour obtenir un recu et suivre le traitement.</p>
+          <h2>Aucune commande payee</h2>
+          <p>
+            Les commandes apparaissent ici uniquement apres confirmation du
+            paiement.
+          </p>
           <Link href="/produits">Voir les produits</Link>
         </section>
       )}
