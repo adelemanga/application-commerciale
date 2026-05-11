@@ -8,6 +8,7 @@ export const GET_ALL_CONTACTS = gql`
       lastname
       email
       message
+      isRegisteredClient
     }
   }
 `;
@@ -22,6 +23,8 @@ export const GET_ALL_ADVICES = gql`
       imgUrl
       rating
       title
+      adminReply
+      adminReplyAt
     }
   }
 `;
@@ -258,6 +261,40 @@ export const GET_ALL_RESERVATIONS = gql`
           price
           imgUrl
         }
+      }
+    }
+  }
+`;
+
+export const GET_MY_CLIENT_MESSAGES = gql`
+  query GetMyClientMessages {
+    getMyClientMessages {
+      id
+      message
+      senderRole
+      createdAt
+      readAt
+      client {
+        email
+        firstname
+        lastname
+      }
+    }
+  }
+`;
+
+export const GET_ALL_PLATFORM_CLIENT_MESSAGES = gql`
+  query GetAllPlatformClientMessages {
+    getAllPlatformClientMessages {
+      id
+      message
+      senderRole
+      createdAt
+      readAt
+      client {
+        email
+        firstname
+        lastname
       }
     }
   }

@@ -46,6 +46,8 @@ export const ADD_ADVICE = gql`
       imgUrl
       rating
       title
+      adminReply
+      adminReplyAt
     }
   }
 `;
@@ -66,6 +68,18 @@ export const CREATE_NEW_AVIS = gql`
       message
       rating
       imgUrl
+      adminReply
+      adminReplyAt
+    }
+  }
+`;
+
+export const REPLY_TO_ADVICE = gql`
+  mutation ReplyToAvis($aviId: String!, $reply: String!) {
+    replyToAvis(aviId: $aviId, reply: $reply) {
+      id
+      adminReply
+      adminReplyAt
     }
   }
 `;
@@ -317,5 +331,51 @@ export const HANDLE_RESERVATION = gql`
     handleReservation(data: $data) {
       id
     }
+  }
+`;
+
+export const SEND_PLATFORM_MESSAGE_TO_CLIENT = gql`
+  mutation SendPlatformMessageToClient($clientEmail: String!, $message: String!) {
+    sendPlatformMessageToClient(clientEmail: $clientEmail, message: $message) {
+      id
+      message
+      senderRole
+      createdAt
+      readAt
+      client {
+        email
+        firstname
+        lastname
+      }
+    }
+  }
+`;
+
+export const SEND_PLATFORM_MESSAGE_TO_ADMIN = gql`
+  mutation SendPlatformMessageToAdmin($message: String!) {
+    sendPlatformMessageToAdmin(message: $message) {
+      id
+      message
+      senderRole
+      createdAt
+      readAt
+      client {
+        email
+        firstname
+        lastname
+      }
+    }
+  }
+`;
+
+export const MARK_MY_CLIENT_MESSAGES_AS_READ = gql`
+  mutation MarkMyClientMessagesAsRead {
+    markMyClientMessagesAsRead
+  }
+`;
+
+export const MARK_CLIENT_CONVERSATION_AS_READ = gql`
+  mutation MarkClientConversationAsRead($clientEmail: String!) {
+    markClientConversationAsRead(clientEmail: $clientEmail)
   }
 `;

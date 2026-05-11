@@ -5,6 +5,7 @@ import { User } from "../entities/User";
 import { DataSource } from "typeorm";
 import { Contact } from "../entities/Contact";
 import { Avis } from "../entities/Avis";
+import { ClientMessage } from "../entities/ClientMessage";
 
 export const db = new DataSource({
   type: "postgres",
@@ -15,7 +16,7 @@ export const db = new DataSource({
   database: process.env.DB_DATABASE || "postgres",
   synchronize: true,
   logging: ["error", "query"],
-  entities: [Product, Article, User, Reservation, Contact, Avis],
+  entities: [Product, Article, User, Reservation, Contact, Avis, ClientMessage],
 });
 
 // import { DataSource } from "typeorm";

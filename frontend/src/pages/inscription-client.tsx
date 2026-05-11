@@ -1,4 +1,5 @@
 import { ApolloProvider, useMutation } from "@apollo/client";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { ChangeEvent, FormEvent, useState } from "react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -114,6 +115,10 @@ function InscriptionClientContent() {
       <section className="auth-panel registration-panel">
         <p className="shop-kicker">Nouveau compte</p>
         <h1>Inscription client</h1>
+        <p className="auth-helper">
+          Creez votre compte BeautyPlace. La connexion client se fait sur une
+          page separee.
+        </p>
         <form className="auth-form" onSubmit={submitRegistration}>
           <label>
             Prenom
@@ -207,6 +212,10 @@ function InscriptionClientContent() {
             Creer mon compte
           </button>
         </form>
+        <div className="auth-bottom-switch">
+          <span>Vous avez deja un compte ?</span>
+          <Link href="/connexion-client">Se connecter</Link>
+        </div>
       </section>
     </main>
   );

@@ -21,7 +21,6 @@ import {
   UPDATE_RESERVATION_ADMIN,
 } from "../graphql/mutations";
 import {
-  GET_ALL_CONTACTS,
   GET_ALL_PRODUCTS,
   GET_ALL_RESERVATIONS,
   WHO_AM_I,
@@ -121,6 +120,10 @@ function AdminContent() {
   const [form, setForm] = useState<ProductForm>(emptyProduct);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [formErrorPopup, setFormErrorPopup] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
   const [imageInputKey, setImageInputKey] = useState(0);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
   const [orderDrafts, setOrderDrafts] = useState<Record<string, OrderDraft>>({});
@@ -136,13 +139,6 @@ function AdminContent() {
     error: reservationsError,
   } = useQuery(GET_ALL_RESERVATIONS, {
     fetchPolicy: "network-only",
-  });
-  const {
-    data: contactsData,
-    loading: loadingContacts,
-    error: contactsError,
-  } = useQuery(GET_ALL_CONTACTS, {
-    fetchPolicy: "cache-and-network",
   });
   const [createProduct, { loading: creating }] = useMutation(CREATE_NEW_PRODUCT, {
     refetchQueries: [{ query: GET_ALL_PRODUCTS }],
@@ -186,7 +182,6 @@ function AdminContent() {
       );
     }
   );
-  const contacts = contactsData?.getAllContacts ?? [];
 
   useEffect(() => {
     setStockInputs((current) => {
@@ -210,7 +205,58 @@ function AdminContent() {
   const resetProductForm = () => {
     setForm(emptyProduct);
     setEditingProductId(null);
+    setFormErrorPopup(null);
     setImageInputKey((current) => current + 1);
+  };
+
+  const showRequiredFieldError = (message: string) => {
+    setNotice(message);
+    setFormErrorPopup({
+      title: "Champ obligatoire",
+      message,
+    });
+  };
+
+  const validateProductForm = () => {
+    if (!form.name.trim()) {
+      return "Ajoutez le nom du produit.";
+    }
+
+    if (form.name.trim().length < 10) {
+      return "Le nom du produit doit contenir au moins 10 caracteres.";
+    }
+
+    if (!form.description.trim()) {
+      return "Ajoutez une description du produit.";
+    }
+
+    if (!form.category) {
+      return "Choisissez une categorie pour ce produit.";
+    }
+
+    if (!form.imgUrl.trim()) {
+      return "Ajoutez une image avant d'enregistrer ce produit.";
+    }
+
+    if (!form.price.trim()) {
+      return "Ajoutez le prix du produit.";
+    }
+
+    if (Number(form.price) <= 0) {
+      return "Le prix du produit doit etre superieur a 0.";
+    }
+
+    if (!form.stock.trim()) {
+      return "Ajoutez le stock souhaite.";
+    }
+
+    if (Number(form.stock) < 0 || (!editingProductId && Number(form.stock) < 1)) {
+      return editingProductId
+        ? "Le stock ne peut pas etre negatif."
+        : "Le stock doit etre au moins de 1 pour un nouveau produit.";
+    }
+
+    return "";
   };
 
   const submitProduct = async (event: FormEvent<HTMLFormElement>) => {
@@ -218,8 +264,9 @@ function AdminContent() {
     setNotice("");
 
     try {
-      if (!form.category) {
-        setNotice("Choisissez une categorie pour ce produit.");
+      const validationMessage = validateProductForm();
+      if (validationMessage) {
+        showRequiredFieldError(validationMessage);
         return;
       }
 
@@ -284,6 +331,7 @@ function AdminContent() {
 
   const selectImageFile = (event: ChangeEvent<HTMLInputElement>) => {
     setNotice("");
+    setFormErrorPopup(null);
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -438,7 +486,7 @@ function AdminContent() {
         </p>
         <div className="admin-shortcuts">
           <a href="#commandes-clients">Reservations</a>
-          <a href="#messages-clients">Messages</a>
+          <Link href="/admin-messages">Messages</Link>
           <Link href="/admin-commandes-traitees">Commandes traitees</Link>
           <a href="#gestion-produits">Produits</a>
           <Link href="/inscription-administrateur">Nouvel admin</Link>
@@ -446,6 +494,18 @@ function AdminContent() {
       </section>
 
       {notice && <p className="shop-message">{notice}</p>}
+      {formErrorPopup && (
+        <div className="admin-popup-overlay" role="alertdialog" aria-modal="true">
+          <div className="admin-popup">
+            <p className="shop-kicker">Formulaire incomplet</p>
+            <h2>{formErrorPopup.title}</h2>
+            <p>{formErrorPopup.message}</p>
+            <button type="button" onClick={() => setFormErrorPopup(null)}>
+              J'ai compris
+            </button>
+          </div>
+        </div>
+      )}
 
       <section className="admin-panel admin-orders" id="commandes-clients">
         <div className="admin-section-heading">
@@ -688,49 +748,13 @@ function AdminContent() {
         </div>
       </section>
 
-      <section className="admin-panel admin-messages" id="messages-clients">
-        <div className="admin-section-heading">
-          <div>
-            <p className="shop-kicker">Contact</p>
-            <h2>Messages clients</h2>
-          </div>
-          <strong>{contacts.length} message(s)</strong>
-        </div>
-        {loadingContacts && !contacts.length && <p>Chargement des messages...</p>}
-        {contactsError && <p>Impossible de charger les messages clients.</p>}
-        {!loadingContacts && !contacts.length && (
-          <p>Aucun message client pour le moment.</p>
-        )}
-        {contacts.length > 0 && (
-          <div className="admin-message-list">
-            {contacts.map((contact: any) => (
-              <article className="admin-message-card" key={contact.id}>
-                <div>
-                  <span className="admin-mini-label">Client</span>
-                  <strong>
-                    {contact.name} {contact.lastname}
-                  </strong>
-                  <a href={`mailto:${contact.email}`}>{contact.email}</a>
-                  <a
-                    className="gmail-reply-button"
-                    href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
-                      contact.email
-                    )}&su=${encodeURIComponent("Reponse BeautyPlace")}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Repondre avec Gmail
-                  </a>
-                </div>
-                <p>{contact.message}</p>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
       <section className="admin-layout" id="gestion-produits">
-        <form className="admin-form" onSubmit={submitProduct} ref={productFormRef}>
+        <form
+          className="admin-form"
+          onSubmit={submitProduct}
+          ref={productFormRef}
+          noValidate
+        >
           <h2>{editingProductId ? "Modifier le produit" : "Nouveau produit"}</h2>
           {editingProductId && (
             <p className="admin-editing-note">
@@ -781,6 +805,9 @@ function AdminContent() {
               accept="image/*"
               onChange={selectImageFile}
             />
+            <span className="form-help-text">
+              Image obligatoire pour publier le produit.
+            </span>
           </label>
           {form.imgUrl && (
             <img

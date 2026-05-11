@@ -61,7 +61,9 @@ export class ReservationResolver {
     });
     return reservations.filter(
       (reservation) =>
-        reservation.articles.length > 0 && calculateTotal(reservation.articles) > 0
+        !reservation.archivedByAdmin &&
+        reservation.articles.length > 0 &&
+        calculateTotal(reservation.articles) > 0
     );
   }
 
@@ -276,6 +278,8 @@ export class ReservationResolver {
     }
 
     const cleanDeliveryMethod = deliveryMethod?.trim() || "home";
+    const cleanCustomerPhone = customerPhone?.trim();
+    const cleanCustomerAddress = customerAddress?.trim();
     const cleanPickupDate = pickupDate?.trim() || undefined;
     const cleanPickupTime = pickupTime?.trim() || undefined;
     const cleanRelayName = relayName?.trim() || undefined;
@@ -283,6 +287,16 @@ export class ReservationResolver {
 
     if (!["home", "store", "relay"].includes(cleanDeliveryMethod)) {
       throw new Error("Invalid delivery method");
+    }
+
+    if (!cleanCustomerPhone) {
+      throw new Error("Renseignez votre numero de telephone.");
+    }
+
+    if (cleanDeliveryMethod === "home" && !cleanCustomerAddress) {
+      throw new Error(
+        "Adresse de livraison obligatoire avant de continuer vers le paiement."
+      );
     }
 
     if (cleanDeliveryMethod === "store" && !cleanPickupDate) {
@@ -343,8 +357,8 @@ export class ReservationResolver {
       }
     );
 
-    reservation.customerPhone = customerPhone;
-    reservation.customerAddress = customerAddress;
+    reservation.customerPhone = cleanCustomerPhone;
+    reservation.customerAddress = cleanCustomerAddress || "Retrait magasin";
     reservation.paymentMethod = "card";
     reservation.paymentStatus = PaymentStatus.Pending;
     reservation.stripeSessionId = response.data.id;
@@ -578,9 +592,8 @@ export class ReservationResolver {
       throw new Error("Seules les commandes traitees peuvent etre supprimees.");
     }
 
-    reservation.articles = [];
+    reservation.archivedByAdmin = true;
     await reservation.save();
-    await reservation.remove();
 
     return true;
   }

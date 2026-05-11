@@ -99,7 +99,7 @@ const getBotAnswer = (message: string) => {
       "profil",
     ])
   ) {
-    return "Vous pouvez creer un compte client depuis Connexion / inscription. Une fois connecte, votre nom, votre photo et votre historique apparaissent dans votre espace client.";
+    return "La connexion client et l'inscription sont separees : utilisez Connexion pour un compte existant, ou Inscription pour creer un nouveau compte. Une fois connecte, votre nom, votre photo et votre historique apparaissent dans votre espace client.";
   }
 
   if (

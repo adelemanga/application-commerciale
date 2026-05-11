@@ -98,6 +98,10 @@ export class Reservation extends BaseEntity {
   @Column({ default: PaymentStatus.Pending })
   paymentStatus: PaymentStatus;
 
+  @Field()
+  @Column({ default: false })
+  archivedByAdmin: boolean;
+
   @Field(() => User)
   @ManyToOne(() => User, (user) => user.reservations)
   user: User;

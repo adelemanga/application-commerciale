@@ -12,6 +12,7 @@ import jwt from "jsonwebtoken";
 import ReservationResolver from "./resolvers/ReservationResolver";
 import ContactResolver from "./resolvers/ContactResolver";
 import AvisResolver from "./resolvers/AvisResolver";
+import ClientMessageResolver from "./resolvers/ClientMessageResolver";
 import express from "express";
 import http from "http";
 import cors from "cors";
@@ -32,6 +33,7 @@ const start = async () => {
       ReservationResolver,
       ContactResolver,
       AvisResolver,
+      ClientMessageResolver,
     ],
     authChecker: ({ context }: { context: Context }, roles) => {
       console.log("roles for this query/mutation ", roles);
