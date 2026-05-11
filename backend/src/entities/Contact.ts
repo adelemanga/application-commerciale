@@ -30,4 +30,7 @@ export class Contact extends BaseEntity {
   @Column()
   message: string;
 
+  @Field()
+  isRegisteredClient: boolean;
+
 }

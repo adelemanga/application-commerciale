@@ -392,7 +392,10 @@ function TrackingContent() {
         <section className="empty-cart-panel">
           <h2>Connectez-vous pour voir vos commandes</h2>
           <p>Le suivi est rattache a votre compte client.</p>
-          <Link href="/connexion-client">Connexion ou inscription</Link>
+          <div className="auth-link-row">
+            <Link href="/connexion-client">Connexion</Link>
+            <Link href="/inscription-client">Inscription</Link>
+          </div>
         </section>
       ) : selectedOrder ? (
         <section className="tracking-layout">

@@ -1,4 +1,5 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
+import { Heart } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/Header";
@@ -22,6 +23,37 @@ const formatPrice = (price?: number) =>
     style: "currency",
     currency: "EUR",
   }).format(price ?? 0);
+
+const statusLabels: Record<string, string> = {
+  pending: "Panier en cours",
+  submitted: "Commande recue",
+  validated: "Validee par BeautyPlace",
+  ongoing: "En preparation",
+  shipped: "Colis envoye",
+  ended: "Colis livre / commande terminee",
+};
+
+const groupArticlesByProduct = (articles: any[] = []) =>
+  articles.reduce((groups: any[], article: any) => {
+    const product = article.product ?? {};
+    const productId = product.id || product.name || article.id;
+    const existingGroup = groups.find((group) => group.productId === productId);
+
+    if (existingGroup) {
+      existingGroup.quantity += 1;
+      existingGroup.lineTotal += product.price ?? 0;
+      return groups;
+    }
+
+    groups.push({
+      productId,
+      product,
+      quantity: 1,
+      lineTotal: product.price ?? 0,
+    });
+
+    return groups;
+  }, []);
 
 function ClientsContent() {
   const [message, setMessage] = useState("");
@@ -240,6 +272,18 @@ function ClientsContent() {
             <strong>{likedProducts.length}</strong>
             <span>produit(s) like(s)</span>
           </div>
+          <Link className="client-mailbox-shortcut" href="/produits-likes">
+            Favoris
+          </Link>
+          <Link
+            className="client-mailbox-shortcut"
+            href="/messages-client"
+            onClick={() =>
+              window.sessionStorage.setItem("mark-client-messages-read", "1")
+            }
+          >
+            Messagerie
+          </Link>
         </section>
       )}
 
@@ -264,8 +308,9 @@ function ClientsContent() {
       {!loadingUser && !isLoggedIn && (
         <section className="shop-auth-callout">
           <p>Pour commander un produit, connectez-vous ou creez un compte client.</p>
-          <div>
-            <Link href="/connexion-client">Connexion ou inscription</Link>
+          <div className="auth-link-row">
+            <Link href="/connexion-client">Connexion</Link>
+            <Link href="/inscription-client">Inscription</Link>
           </div>
         </section>
       )}
@@ -303,7 +348,7 @@ function ClientsContent() {
                         : "Ajouter aux produits likes"
                     }
                   >
-                    {likedProductIds.includes(product.id) ? "Aime" : "Like"}
+                    <Heart aria-hidden="true" size={18} fill="currentColor" />
                   </button>
                 </div>
               </div>
@@ -347,39 +392,52 @@ function ClientsContent() {
           <h2>Historique des commandes</h2>
           {paidOrderHistory.length ? (
             <div className="client-history-list">
-              {paidOrderHistory.map((item: any) => (
-                <div className="client-history-card" key={item.reservation.id}>
-                  <div>
-                    <strong>
-                      Commande du{" "}
-                      {new Date(item.reservation.createdAt).toLocaleDateString(
-                        "fr-FR"
+              {paidOrderHistory.map((item: any) => {
+                const productLines = groupArticlesByProduct(
+                  item.reservation.articles
+                );
+
+                return (
+                  <div className="client-history-card" key={item.reservation.id}>
+                    <div>
+                      <strong>
+                        Commande du{" "}
+                        {new Date(item.reservation.createdAt).toLocaleDateString(
+                          "fr-FR"
+                        )}
+                      </strong>
+                      <p>
+                        Statut :{" "}
+                        {statusLabels[item.reservation.status] ||
+                          item.reservation.status}
+                      </p>
+                      {item.reservation.status !== "pending" && (
+                        <Link href={`/suivi-commandes?commande=${item.reservation.id}`}>
+                          Voir le recu et le suivi
+                        </Link>
                       )}
-                    </strong>
-                    <p>Statut : {item.reservation.status}</p>
-                    {item.reservation.status !== "pending" && (
-                      <Link href={`/suivi-commandes?commande=${item.reservation.id}`}>
-                        Voir le recu et le suivi
-                      </Link>
-                    )}
+                    </div>
+                    <ul>
+                      {productLines.map((line: any) => (
+                        <li key={line.productId}>
+                          <img
+                            src={line.product?.imgUrl}
+                            alt={line.product?.name}
+                          />
+                          <span>{line.product?.name}</span>
+                          <span className="order-product-quantity">
+                            x{line.quantity}
+                          </span>
+                          <strong>{formatPrice(line.lineTotal)}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="client-history-total">
+                      Total commande : <strong>{formatPrice(item.totalPrice)}</strong>
+                    </p>
                   </div>
-                  <ul>
-                    {item.reservation.articles.map((article: any) => (
-                      <li key={article.id}>
-                        <img
-                          src={article.product?.imgUrl}
-                          alt={article.product?.name}
-                        />
-                        <span>{article.product?.name}</span>
-                        <strong>{article.product?.price} EUR</strong>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="client-history-total">
-                    Total commande : <strong>{formatPrice(item.totalPrice)}</strong>
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p>Aucune commande dans votre historique pour le moment.</p>
@@ -388,6 +446,9 @@ function ClientsContent() {
 
         <article className="client-panel">
           <h2>Produits likes</h2>
+          <Link className="cart-link" href="/produits-likes">
+            Voir la page favoris
+          </Link>
           {likedProducts.length ? (
             <div className="liked-products-list">
               {likedProducts.map((product) => (

@@ -9,6 +9,7 @@ import {
 } from "type-graphql";
 import { db } from "../config/db";
 import { Contact } from "../entities/Contact";
+import { Role, User } from "../entities/User";
 
 @InputType()
 class NewContactInput implements Partial<Contact> {
@@ -30,6 +31,23 @@ class ContactResolver {
   @Query(() => [Contact])
   async getAllContacts() {
     const contacts = await Contact.find();
+    const userEmails = new Set(
+      (
+        await User.find({
+          select: {
+            email: true,
+            role: true,
+          },
+        })
+      )
+        .filter((user) => user.role === Role.User)
+        .map((user) => user.email.toLowerCase())
+    );
+
+    contacts.forEach((contact) => {
+      contact.isRegisteredClient = userEmails.has(contact.email.toLowerCase());
+    });
+
     return contacts;
   }
 

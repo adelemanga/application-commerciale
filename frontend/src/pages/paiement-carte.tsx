@@ -35,6 +35,7 @@ function PaiementCarteContent() {
   const [pickupTime, setPickupTime] = useState("");
   const [relayName, setRelayName] = useState("");
   const [relayAddress, setRelayAddress] = useState("");
+  const [addressError, setAddressError] = useState("");
   const prefilledRef = useRef(false);
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
@@ -105,19 +106,30 @@ function PaiementCarteContent() {
   const openStripeCheckout = async (event: FormEvent) => {
     event.preventDefault();
     setMessage("");
+    setAddressError("");
+
+    const cleanFirstname = firstname.trim();
+    const cleanLastname = lastname.trim();
+    const cleanPhone = customerPhone.trim();
+    const cleanAddress = customerAddress.trim();
+    const cleanRelayName = relayName.trim();
+    const cleanRelayAddress = relayAddress.trim();
 
     if (!reservation?.id || !articles.length) {
       setMessage("Votre panier est vide.");
       return;
     }
 
-    if (!firstname || !lastname || !customerPhone) {
+    if (!cleanFirstname || !cleanLastname || !cleanPhone) {
       setMessage("Remplissez votre nom, prenom et telephone.");
       return;
     }
 
-    if (deliveryMethod === "home" && !customerAddress) {
-      setMessage("Renseignez votre adresse de livraison.");
+    if (deliveryMethod === "home" && !cleanAddress) {
+      const errorMessage =
+        "Adresse de livraison obligatoire avant de continuer vers le paiement.";
+      setAddressError(errorMessage);
+      setMessage(errorMessage);
       return;
     }
 
@@ -126,7 +138,7 @@ function PaiementCarteContent() {
       return;
     }
 
-    if (deliveryMethod === "relay" && (!relayName || !relayAddress)) {
+    if (deliveryMethod === "relay" && (!cleanRelayName || !cleanRelayAddress)) {
       setMessage("Renseignez le nom et l'adresse du point relais.");
       return;
     }
@@ -135,14 +147,14 @@ function PaiementCarteContent() {
       const response = await createStripeCheckoutSession({
         variables: {
           reservationId: reservation.id,
-          customerPhone,
+          customerPhone: cleanPhone,
           customerAddress:
-            deliveryMethod === "relay" ? relayAddress : customerAddress,
+            deliveryMethod === "relay" ? cleanRelayAddress : cleanAddress,
           deliveryMethod,
           pickupDate: deliveryMethod === "store" ? pickupDate : null,
           pickupTime: deliveryMethod === "store" ? pickupTime : null,
-          relayName: deliveryMethod === "relay" ? relayName : null,
-          relayAddress: deliveryMethod === "relay" ? relayAddress : null,
+          relayName: deliveryMethod === "relay" ? cleanRelayName : null,
+          relayAddress: deliveryMethod === "relay" ? cleanRelayAddress : null,
           frontendUrl: window.location.origin,
         },
       });
@@ -189,7 +201,10 @@ function PaiementCarteContent() {
         <section className="empty-cart-panel">
           <h2>Connectez-vous pour payer</h2>
           <p>Le paiement est rattache a votre compte client.</p>
-          <Link href="/connexion-client">Connexion ou inscription</Link>
+          <div className="auth-link-row">
+            <Link href="/connexion-client">Connexion</Link>
+            <Link href="/inscription-client">Inscription</Link>
+          </div>
         </section>
       ) : articles.length ? (
         <section className="checkout-layout">
@@ -231,21 +246,33 @@ function PaiementCarteContent() {
                 <button
                   type="button"
                   className={deliveryMethod === "home" ? "active" : ""}
-                  onClick={() => setDeliveryMethod("home")}
+                  onClick={() => {
+                    setDeliveryMethod("home");
+                    setMessage("");
+                    setAddressError("");
+                  }}
                 >
                   A domicile
                 </button>
                 <button
                   type="button"
                   className={deliveryMethod === "relay" ? "active" : ""}
-                  onClick={() => setDeliveryMethod("relay")}
+                  onClick={() => {
+                    setDeliveryMethod("relay");
+                    setMessage("");
+                    setAddressError("");
+                  }}
                 >
                   Point relais
                 </button>
                 <button
                   type="button"
                   className={deliveryMethod === "store" ? "active" : ""}
-                  onClick={() => setDeliveryMethod("store")}
+                  onClick={() => {
+                    setDeliveryMethod("store");
+                    setMessage("");
+                    setAddressError("");
+                  }}
                 >
                   Retrait magasin
                 </button>
@@ -253,15 +280,19 @@ function PaiementCarteContent() {
             </div>
 
             {deliveryMethod === "home" && (
-              <div className="checkout-wide-field">
+              <div className={`checkout-wide-field${addressError ? " field-invalid" : ""}`}>
                 <AddressAutocomplete
                   required
                   label="Adresse de livraison"
                   name="address"
                   value={customerAddress}
-                  onChange={setCustomerAddress}
+                  onChange={(value) => {
+                    setCustomerAddress(value);
+                    setAddressError("");
+                  }}
                   placeholder="Region, ville, code postal, rue ou adresse complete"
                 />
+                {addressError && <p className="error-message">{addressError}</p>}
               </div>
             )}
 

@@ -40,4 +40,12 @@ export class Avis extends BaseEntity {
   @Field()
   @Column({ nullable: true })
   title: string;
+
+  @Field({ nullable: true })
+  @Column({ type: "text", nullable: true })
+  adminReply?: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  adminReplyAt?: Date;
 }

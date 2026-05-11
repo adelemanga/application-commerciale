@@ -44,13 +44,15 @@ function Advice() {
     name: "",
     lastname: "",
     message: "",
-    imgUrl: DEFAULT_ADVICE_IMAGE,
+    imgUrl: "",
     rating: 0,
     title: "",
   });
 
   const [imageURL, setImageURL] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const [imageError, setImageError] = useState("");
+  const [formError, setFormError] = useState("");
 
   const [addAvis, { loading, error }] = useMutation(ADD_ADVICE, {
     refetchQueries: [{ query: GET_ALL_ADVICES }],
@@ -61,6 +63,7 @@ function Advice() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
+    setFormError("");
     setFormData({
       ...formData,
       [name]: value,
@@ -69,6 +72,7 @@ function Advice() {
 
   // Gestion de la note (étoiles)
   const handleRatingChange = (value: number) => {
+    setFormError("");
     setFormData({
       ...formData,
       rating: value,
@@ -77,6 +81,9 @@ function Advice() {
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    setImageError("");
+    setSuccessMessage("");
+    setFormError("");
 
     if (!file) {
       setImageURL(null);
@@ -84,20 +91,41 @@ function Advice() {
     }
 
     if (!file.type.startsWith("image/")) {
-      setSuccessMessage("Selectionnez une vraie image.");
+      setImageError("Selectionnez une vraie image.");
       return;
     }
 
     resizeAdvicePhoto(file)
       .then(setImageURL)
       .catch(() => {
-        setSuccessMessage("Impossible de lire cette image.");
+        setImageError("Impossible de lire cette image.");
       });
   };
 
   // Soumission du formulaire
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setImageError("");
+    setFormError("");
+    setSuccessMessage("");
+
+    if (!imageURL) {
+      const message = "Ajoutez une photo avant d'envoyer votre avis.";
+      setImageError(message);
+      window.alert(message);
+      return;
+    }
+
+    if (
+      !formData.name.trim() ||
+      !formData.lastname.trim() ||
+      !formData.title.trim() ||
+      !formData.message.trim() ||
+      formData.rating < 1
+    ) {
+      setFormError("Remplissez tous les champs et choisissez une note avant d'envoyer votre avis.");
+      return;
+    }
 
     // Mettre à jour formData avec l'URL de l'image téléchargée
     const formDataWithImg = {
@@ -106,7 +134,7 @@ function Advice() {
       lastname: formData.lastname.trim(),
       message: formData.message.trim(),
       title: formData.title.trim(),
-      imgUrl: imageURL || DEFAULT_ADVICE_IMAGE,
+      imgUrl: imageURL,
     };
 
     try {
@@ -116,7 +144,7 @@ function Advice() {
         name: "",
         lastname: "",
         message: "",
-        imgUrl: DEFAULT_ADVICE_IMAGE,
+        imgUrl: "",
         rating: 0,
         title: "",
       });
@@ -134,7 +162,7 @@ function Advice() {
       </div>
 
       <form className="avis" onSubmit={handleSubmit}>
-        <div className="advice-upload">
+        <div className={`advice-upload${imageError ? " is-invalid" : ""}`}>
           <img
             src={imageURL || DEFAULT_ADVICE_IMAGE}
             alt="Photo de profil"
@@ -145,7 +173,9 @@ function Advice() {
             type="file"
             accept="image/*"
             onChange={handleImageChange}
+            required
           />
+          {imageError && <p className="error-message">{imageError}</p>}
         </div>
 
         {/* Formulaire */}
@@ -215,6 +245,7 @@ function Advice() {
           {loading ? "Envoi en cours..." : "Envoyer"}
         </button>
 
+        {formError && <p className="error-message">{formError}</p>}
         {successMessage && <p className="success-message">{successMessage}</p>}
         {error && <p className="error-message">Une erreur est survenue.</p>}
       </form>

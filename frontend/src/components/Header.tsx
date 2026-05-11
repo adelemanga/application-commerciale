@@ -3,7 +3,12 @@ import { useLazyQuery, useQuery } from "@apollo/client";
 import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { LOGOUT, WHO_AM_I } from "../graphql/queries";
+import {
+  GET_ALL_PLATFORM_CLIENT_MESSAGES,
+  GET_MY_CLIENT_MESSAGES,
+  LOGOUT,
+  WHO_AM_I,
+} from "../graphql/queries";
 import { Role } from "../interface/types";
 
 const mainLinks = [
@@ -26,6 +31,8 @@ export default function Header() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [dismissedAdminMessageCount, setDismissedAdminMessageCount] =
+    useState(0);
   const { data, refetch } = useQuery(WHO_AM_I, {
     fetchPolicy: "cache-and-network",
   });
@@ -36,6 +43,30 @@ export default function Header() {
   const isLoggedIn = Boolean(user?.isLoggedIn);
   const isClientLoggedIn = isLoggedIn && user?.role === Role.User;
   const isAdminLoggedIn = isLoggedIn && user?.role === Role.Admin;
+  const { data: clientMessagesData } = useQuery(GET_MY_CLIENT_MESSAGES, {
+    fetchPolicy: "cache-and-network",
+    pollInterval: 30000,
+    skip: !isClientLoggedIn,
+  });
+  const { data: adminMessagesData } = useQuery(GET_ALL_PLATFORM_CLIENT_MESSAGES, {
+    fetchPolicy: "cache-and-network",
+    pollInterval: 15000,
+    skip: !isAdminLoggedIn,
+  });
+  const clientMessageCount =
+    clientMessagesData?.getMyClientMessages?.filter(
+      (clientMessage: any) =>
+        clientMessage.senderRole === "Admin" && !clientMessage.readAt
+    ).length ?? 0;
+  const adminUnreadClientMessageCount =
+    adminMessagesData?.getAllPlatformClientMessages?.filter(
+      (platformMessage: any) =>
+        platformMessage.senderRole === "Client" && !platformMessage.readAt
+    ).length ?? 0;
+  const showAdminMessagePopup =
+    isAdminLoggedIn &&
+    adminUnreadClientMessageCount > 0 &&
+    dismissedAdminMessageCount !== adminUnreadClientMessageCount;
   const clientName = [user?.firstname, user?.lastname].filter(Boolean).join(" ");
   const clientLabel = clientName || user?.email || "Mon compte client";
   const profileImage =
@@ -66,8 +97,30 @@ export default function Header() {
     router.prefetch(href).catch(() => undefined);
   };
 
+  const rememberClientMessageOpen = () => {
+    window.sessionStorage.setItem("mark-client-messages-read", "1");
+  };
+
   return (
     <header className="navbar">
+      {showAdminMessagePopup && (
+        <div className="admin-message-popup" role="status">
+          <div>
+            <strong>{adminUnreadClientMessageCount} message(s) client non lu(s)</strong>
+            <span>Ouvrez la messagerie pour traiter les nouveaux messages.</span>
+          </div>
+          <Link href="/admin-messages">Voir</Link>
+          <button
+            type="button"
+            aria-label="Fermer l'alerte messages"
+            onClick={() =>
+              setDismissedAdminMessageCount(adminUnreadClientMessageCount)
+            }
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Menu Desktop */}
       {!isMobile && (
         <nav className="nav0">
@@ -114,11 +167,46 @@ export default function Header() {
                 <img src={profileImage} alt="" aria-hidden="true" />
               </Link>
             ) : !isLoggedIn ? (
-              <Link href="/connexion-client">Inscription</Link>
+              <>
+                <Link href="/connexion-client">Connexion</Link>
+                <Link href="/inscription-client">Inscription</Link>
+              </>
             ) : null}
             {!isClientLoggedIn && (
               <Link href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}>
                 {isAdminLoggedIn ? "Interface admin" : "Admin"}
+              </Link>
+            )}
+            {isAdminLoggedIn && (
+              <Link
+                className="nav-message-link nav-admin-message-link"
+                href="/admin-messages"
+              >
+                Messages
+                {adminUnreadClientMessageCount > 0 && (
+                  <>
+                    <span className="message-alert-badge">
+                      {adminUnreadClientMessageCount}
+                    </span>
+                    <span className="menu-message-popup">
+                      {adminUnreadClientMessageCount}
+                    </span>
+                  </>
+                )}
+              </Link>
+            )}
+            {isClientLoggedIn && (
+              <Link
+                className="nav-message-link"
+                href="/messages-client"
+                onClick={rememberClientMessageOpen}
+              >
+                Messages
+                {clientMessageCount > 0 && (
+                  <span className="message-alert-badge">
+                    {clientMessageCount}
+                  </span>
+                )}
               </Link>
             )}
             {isClientLoggedIn && <Link href="/suivi-commandes">Suivi</Link>}
@@ -193,12 +281,20 @@ export default function Header() {
                       <img src={profileImage} alt="" aria-hidden="true" />
                     </Link>
                   ) : !isLoggedIn ? (
-                    <Link
-                      href="/connexion-client"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Connexion / inscription
-                    </Link>
+                    <>
+                      <Link
+                        href="/connexion-client"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Connexion
+                      </Link>
+                      <Link
+                        href="/inscription-client"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Inscription
+                      </Link>
+                    </>
                   ) : null}
                 </li>
                 {!isClientLoggedIn && (
@@ -208,6 +304,46 @@ export default function Header() {
                       onClick={() => setIsOpen(false)}
                     >
                       {isAdminLoggedIn ? "Interface admin" : "Admin"}
+                    </Link>
+                  </li>
+                )}
+                {isAdminLoggedIn && (
+                  <li>
+                    <Link
+                      className="drawer-message-link"
+                      href="/admin-messages"
+                      onClick={() => setIsOpen(false)}
+	                    >
+	                      Messages
+	                      {adminUnreadClientMessageCount > 0 && (
+	                        <>
+	                          <span className="message-alert-badge">
+	                            {adminUnreadClientMessageCount}
+	                          </span>
+	                          <span className="menu-message-popup drawer-menu-message-popup">
+	                            {adminUnreadClientMessageCount}
+	                          </span>
+	                        </>
+	                      )}
+	                    </Link>
+                  </li>
+                )}
+                {isClientLoggedIn && (
+                  <li>
+                    <Link
+                      className="drawer-message-link"
+                      href="/messages-client"
+                      onClick={() => {
+                        rememberClientMessageOpen();
+                        setIsOpen(false);
+                      }}
+                    >
+                      Messages
+                      {clientMessageCount > 0 && (
+                        <span className="message-alert-badge">
+                          {clientMessageCount}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 )}

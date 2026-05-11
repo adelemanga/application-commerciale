@@ -45,6 +45,16 @@ const normalizeProductCategory = (category?: string) => {
   return normalizedCategory;
 };
 
+const normalizeProductImage = (imgUrl?: string) => {
+  const normalizedImage = imgUrl?.trim();
+
+  if (!normalizedImage) {
+    throw new Error("Ajoutez une image avant d'enregistrer ce produit.");
+  }
+
+  return normalizedImage;
+};
+
 // data from range picker
 @InputType()
 class ProductDateRangeInput {
@@ -73,9 +83,11 @@ class ProductResolver {
   @Mutation(() => Product)
   async createNewProduct(@Arg("data") newProductData: NewProductInput) {
     const category = normalizeProductCategory(newProductData.category);
+    const imgUrl = normalizeProductImage(newProductData.imgUrl);
     const resultFromSave = await Product.save({
       ...newProductData,
       category,
+      imgUrl,
     });
 
     return resultFromSave;
@@ -216,9 +228,7 @@ class ProductResolver {
     product.description = newProductData.description;
     product.price = newProductData.price;
     product.category = normalizeProductCategory(newProductData.category);
-    if (newProductData.imgUrl !== undefined) {
-      product.imgUrl = newProductData.imgUrl;
-    }
+    product.imgUrl = normalizeProductImage(newProductData.imgUrl);
 
     const updatedProduct = await product.save();
     return updatedProduct;

@@ -1,7 +1,8 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
+import { Heart } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import client from "../graphql/client";
@@ -48,12 +49,14 @@ function ProduitsContent() {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
+  const [likedProductIds, setLikedProductIds] = useState<string[]>([]);
   const pendingProductIds = useRef<Set<string>>(new Set());
   const { data: userData } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
     errorPolicy: "ignore",
   });
   const isLoggedIn = Boolean(userData?.whoAmI?.isLoggedIn);
+  const userEmail = userData?.whoAmI?.email;
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS, {
     fetchPolicy: "cache-and-network",
     nextFetchPolicy: "cache-first",
@@ -70,6 +73,16 @@ function ProduitsContent() {
   const [handleReservation] = useMutation(HANDLE_RESERVATION, {
     refetchQueries: [{ query: GET_CURRENT_RESERVATION_BY_USER_ID }],
   });
+
+  useEffect(() => {
+    if (!userEmail) {
+      setLikedProductIds([]);
+      return;
+    }
+
+    const savedLikes = window.localStorage.getItem(`liked-products-${userEmail}`);
+    setLikedProductIds(savedLikes ? JSON.parse(savedLikes) : []);
+  }, [userEmail]);
 
   const products = useMemo<ProductWithArticles[]>(
     () => data?.getAllProducts ?? [],
@@ -124,6 +137,25 @@ function ProduitsContent() {
       )
     );
   }, [reservation?.articles]);
+
+  const toggleLike = (productId: string) => {
+    if (!isLoggedIn || !userEmail) {
+      setMessage("Connectez-vous pour enregistrer vos produits favoris.");
+      router.push("/connexion-client");
+      return;
+    }
+
+    const nextLikedProductIds = likedProductIds.includes(productId)
+      ? likedProductIds.filter((id) => id !== productId)
+      : [...likedProductIds, productId];
+
+    setLikedProductIds(nextLikedProductIds);
+    window.localStorage.setItem(
+      `liked-products-${userEmail}`,
+      JSON.stringify(nextLikedProductIds)
+    );
+  };
+
   const addToCart = async (product: ProductWithArticles) => {
     if (pendingProductIds.current.has(product.id)) {
       return;
@@ -197,6 +229,11 @@ function ProduitsContent() {
             <Link href="/produits">Voir toute la boutique</Link>
           </div>
         )}
+        {isLoggedIn && (
+          <div className="category-actions">
+            <Link href="/produits-likes">Voir mes produits favoris</Link>
+          </div>
+        )}
       </section>
 
       {message && <p className="shop-message">{message}</p>}
@@ -213,8 +250,9 @@ function ProduitsContent() {
             Vous pouvez parcourir tous les produits disponibles. La connexion
             permet simplement de retrouver votre panier et vos commandes.
           </p>
-          <div>
-            <Link href="/connexion-client">Connexion ou inscription</Link>
+          <div className="auth-link-row">
+            <Link href="/connexion-client">Connexion</Link>
+            <Link href="/inscription-client">Inscription</Link>
           </div>
         </section>
       )}
@@ -223,6 +261,22 @@ function ProduitsContent() {
         <div className="product-grid">
           {displayedProducts.map((product) => (
             <article className="shop-card" key={product.id}>
+              <button
+                type="button"
+                className={
+                  likedProductIds.includes(product.id)
+                    ? "product-heart-button liked"
+                    : "product-heart-button"
+                }
+                onClick={() => toggleLike(product.id)}
+                aria-label={
+                  likedProductIds.includes(product.id)
+                    ? "Retirer des favoris"
+                    : "Ajouter aux favoris"
+                }
+              >
+                <Heart aria-hidden="true" size={19} fill="currentColor" />
+              </button>
               <img src={product.imgUrl} alt={product.name} />
               <div>
                 <h2>{product.name}</h2>

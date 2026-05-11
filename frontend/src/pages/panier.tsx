@@ -7,10 +7,11 @@ import client from "../graphql/client";
 import {
   CANCEL_RESERVATION,
   DELETE_ARTICLE_FROM_RESERVATION,
+  HANDLE_RESERVATION,
 } from "../graphql/mutations";
 import {
+  GET_ALL_PRODUCTS,
   GET_CURRENT_RESERVATION_BY_USER_ID,
-  GET_RESERVATIONS_BY_USER_ID,
   WHO_AM_I,
 } from "../graphql/queries";
 
@@ -22,13 +23,14 @@ const formatPrice = (price?: number) =>
 
 function PanierContent() {
   const [message, setMessage] = useState("");
-  const [removingArticleId, setRemovingArticleId] = useState<string | null>(null);
+  const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
   const pendingArticleIds = useRef<Set<string>>(new Set());
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "cache-and-network",
     nextFetchPolicy: "cache-first",
     notifyOnNetworkStatusChange: false,
   });
+  const isLoggedIn = userData?.whoAmI?.isLoggedIn;
   const { data, loading, error, refetch } = useQuery(
     GET_CURRENT_RESERVATION_BY_USER_ID,
     {
@@ -37,18 +39,16 @@ function PanierContent() {
       notifyOnNetworkStatusChange: false,
     }
   );
-  const [deleteArticleFromReservation] = useMutation(DELETE_ARTICLE_FROM_RESERVATION, {
-    refetchQueries: [
-      { query: GET_CURRENT_RESERVATION_BY_USER_ID },
-      { query: GET_RESERVATIONS_BY_USER_ID },
-    ],
+  const { data: productsData } = useQuery(GET_ALL_PRODUCTS, {
+    fetchPolicy: "cache-and-network",
+    nextFetchPolicy: "cache-first",
+    skip: !isLoggedIn,
   });
-  const [cancelReservation] = useMutation(CANCEL_RESERVATION, {
-    refetchQueries: [
-      { query: GET_CURRENT_RESERVATION_BY_USER_ID },
-      { query: GET_RESERVATIONS_BY_USER_ID },
-    ],
-  });
+  const [deleteArticleFromReservation] = useMutation(
+    DELETE_ARTICLE_FROM_RESERVATION
+  );
+  const [cancelReservation] = useMutation(CANCEL_RESERVATION);
+  const [handleReservation] = useMutation(HANDLE_RESERVATION);
 
   const reservation = data?.getCurrentReservationByUserId?.reservation;
   const totalPrice = data?.getCurrentReservationByUserId?.totalPrice ?? 0;
@@ -84,15 +84,23 @@ function PanierContent() {
       )
     );
   }, [articles]);
-  const isLoggedIn = userData?.whoAmI?.isLoggedIn;
+  const productsById = useMemo(() => {
+    return (productsData?.getAllProducts ?? []).reduce(
+      (products: Record<string, any>, product: any) => {
+        products[product.id] = product;
+        return products;
+      },
+      {}
+    );
+  }, [productsData?.getAllProducts]);
 
-  const removeArticle = async (articleId: string) => {
+  const removeArticle = async (articleId: string, productId: string) => {
     if (pendingArticleIds.current.has(articleId)) {
       return;
     }
 
     setMessage("");
-    setRemovingArticleId(articleId);
+    setUpdatingProductId(productId);
     pendingArticleIds.current.add(articleId);
 
     try {
@@ -107,12 +115,84 @@ function PanierContent() {
       }
 
       await refetch();
-      setMessage("Le produit a ete retire du panier.");
     } catch {
       setMessage("Impossible de retirer ce produit du panier.");
     } finally {
       pendingArticleIds.current.delete(articleId);
-      setRemovingArticleId(null);
+      setUpdatingProductId(null);
+    }
+  };
+
+  const removeProductLine = async (line: any) => {
+    if (updatingProductId) {
+      return;
+    }
+
+    setMessage("");
+    setUpdatingProductId(line.productId);
+
+    try {
+      if (line.articles.length === articles.length && reservation?.id) {
+        await cancelReservation({
+          variables: { reservationId: reservation.id },
+        });
+      } else {
+        for (const article of line.articles) {
+          await deleteArticleFromReservation({
+            variables: { id: article.id },
+          });
+        }
+      }
+
+      await refetch();
+      setMessage(`${line.product.name} a ete supprime du panier.`);
+    } catch {
+      setMessage("Impossible de supprimer ce produit du panier.");
+    } finally {
+      setUpdatingProductId(null);
+    }
+  };
+
+  const addArticleToLine = async (line: any) => {
+    if (updatingProductId) {
+      return;
+    }
+
+    setMessage("");
+    setUpdatingProductId(line.productId);
+
+    const reservedArticleIds = new Set(
+      articles.map((article: any) => article.id)
+    );
+    const product = productsById[line.productId];
+    const articleId = product?.articles?.find(
+      (article: any) => !reservedArticleIds.has(article.id)
+    )?.id;
+
+    if (!articleId) {
+      setMessage("Stock maximum atteint pour ce produit.");
+      setUpdatingProductId(null);
+      return;
+    }
+
+    const today = new Date();
+    const tomorrow = new Date(Date.now() + 86400000);
+
+    try {
+      await handleReservation({
+        variables: {
+          data: {
+            articleId,
+            startDate: today.toISOString(),
+            endDate: tomorrow.toISOString(),
+          },
+        },
+      });
+      await refetch();
+    } catch {
+      setMessage("Impossible d'ajouter une unite de ce produit.");
+    } finally {
+      setUpdatingProductId(null);
     }
   };
 
@@ -139,8 +219,9 @@ function PanierContent() {
         <section className="empty-cart-panel">
           <h2>Connectez-vous pour voir votre panier</h2>
           <p>Votre panier est rattache a votre compte client.</p>
-          <div>
-            <Link href="/connexion-client">Connexion ou inscription</Link>
+          <div className="auth-link-row">
+            <Link href="/connexion-client">Connexion</Link>
+            <Link href="/inscription-client">Inscription</Link>
           </div>
         </section>
       ) : articles.length ? (
@@ -159,16 +240,35 @@ function PanierContent() {
                   </div>
                 </div>
                 <strong className="cart-line-total">{formatPrice(line.lineTotal)}</strong>
-                <button
-                  type="button"
-                  className="danger-button"
-                  disabled={removingArticleId === line.articles[0].id}
-                  onClick={() => removeArticle(line.articles[0].id)}
-                >
-                  {removingArticleId === line.articles[0].id
-                    ? "Retrait..."
-                    : "Retirer 1"}
-                </button>
+                <div className="cart-line-actions">
+                  <div className="cart-quantity-actions" aria-label="Modifier la quantite">
+                    <button
+                      type="button"
+                      aria-disabled={updatingProductId === line.productId}
+                      onClick={() => removeArticle(line.articles[0].id, line.productId)}
+                      aria-label={`Reduire la quantite de ${line.product.name}`}
+                    >
+                      -
+                    </button>
+                    <span>{line.quantity}</span>
+                    <button
+                      type="button"
+                      aria-disabled={updatingProductId === line.productId}
+                      onClick={() => addArticleToLine(line)}
+                      aria-label={`Augmenter la quantite de ${line.product.name}`}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="danger-button remove-line-button"
+                    aria-disabled={updatingProductId === line.productId}
+                    onClick={() => removeProductLine(line)}
+                  >
+                    Supprimer ce produit
+                  </button>
+                </div>
               </article>
             ))}
           </div>
