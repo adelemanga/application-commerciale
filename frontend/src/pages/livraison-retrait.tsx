@@ -16,14 +16,14 @@ export default function LivraisonRetraitPage() {
           {
             title: "Livraison",
             content: [
-              "Les commandes payees en ligne par carte bancaire peuvent etre preparees puis expediees selon le transporteur choisi par l'administrateur.",
+              "Les commandes payées en ligne par carte bancaire peuvent etre preparees puis expediees selon le transporteur choisi par l'administrateur.",
               "Le numero de suivi apparait dans l'espace client lorsque l'administrateur renseigne le transporteur et le suivi.",
             ],
           },
           {
             title: "Retrait sur place",
             content: [
-              "Le client peut choisir un paiement sur place. Dans ce cas, aucun colis n'est envoye.",
+              "Le client peut choisir un paiement sur place. Dans ce cas, aucun colis n'est envoyé.",
               "Le client selectionne une date de retrait obligatoire et une heure optionnelle. Ces informations sont transmises a l'administrateur.",
             ],
           },

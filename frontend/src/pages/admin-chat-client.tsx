@@ -9,10 +9,7 @@ import {
   MARK_CLIENT_CONVERSATION_AS_READ,
   SEND_PLATFORM_MESSAGE_TO_CLIENT,
 } from "../graphql/mutations";
-import {
-  GET_ALL_PLATFORM_CLIENT_MESSAGES,
-  WHO_AM_I,
-} from "../graphql/queries";
+import { GET_ALL_PLATFORM_CLIENT_MESSAGES, WHO_AM_I } from "../graphql/queries";
 import { Role } from "../interface/types";
 
 function AdminChatClientContent() {
@@ -215,7 +212,9 @@ function AdminChatClientContent() {
       <main className="admin-page admin-chat-page">
         <section className="empty-cart-panel admin-auth-required">
           <h2>Connexion administrateur requise</h2>
-          <p>Connectez-vous avec un compte administrateur pour ouvrir ce tchat.</p>
+          <p>
+            Connectez-vous avec un compte administrateur pour ouvrir ce tchat.
+          </p>
           <Link href="/connexion-administrateur">Se connecter en admin</Link>
         </section>
       </main>
@@ -290,7 +289,7 @@ function AdminChatClientContent() {
             <span>
               {unreadClientMessages.length > 0
                 ? `${unreadClientMessages.length} message(s) non lu(s)`
-                : "Tous les messages recus sont lus"}
+                : "Tous les messages reçues sont lus"}
             </span>
           </div>
         )}
@@ -351,7 +350,10 @@ function AdminChatClientContent() {
           </div>
         )}
 
-        <form className="platform-reply-form admin-chat-form" onSubmit={sendMessage}>
+        <form
+          className="platform-reply-form admin-chat-form"
+          onSubmit={sendMessage}
+        >
           <label>
             Repondre au client
             <textarea

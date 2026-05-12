@@ -18,7 +18,7 @@ function PaiementSurPlaceContent() {
       <section className="empty-cart-panel">
         <h2>Paiement par carte obligatoire</h2>
         <p>
-          Les commandes sont maintenant payees par carte bancaire. Vous pourrez
+          Les commandes sont maintenant payées par carte bancaire. Vous pourrez
           choisir livraison a domicile, point relais ou retrait magasin avant
           Stripe.
         </p>

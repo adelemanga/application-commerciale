@@ -31,7 +31,7 @@ export default function RetoursRemboursementsPage() {
             title: "Remboursement",
             content: [
               "Apres verification du produit retourne, le remboursement fictif est effectue sur le moyen de paiement initial lorsque cela est possible.",
-              "Pour les reservations payees sur place, le remboursement est traite directement avec le client selon les modalites convenues.",
+              "Pour les reservations payées sur place, le remboursement est traite directement avec le client selon les modalites convenues.",
             ],
           },
           {

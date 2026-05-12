@@ -67,7 +67,9 @@ const getOrderedArticles = (reservation: any) => {
 function ClientsContent() {
   const [message, setMessage] = useState("");
   const [likedProductIds, setLikedProductIds] = useState<string[]>([]);
-  const [orderingProductId, setOrderingProductId] = useState<string | null>(null);
+  const [orderingProductId, setOrderingProductId] = useState<string | null>(
+    null
+  );
   const pendingProductIds = useRef<Set<string>>(new Set());
 
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS);
@@ -149,7 +151,9 @@ function ClientsContent() {
     pendingProductIds.current.add(product.id);
 
     if (!isLoggedIn) {
-      setMessage("Connectez-vous ou creez un compte avant d'ajouter au panier.");
+      setMessage(
+        "Connectez-vous ou creez un compte avant d'ajouter au panier."
+      );
       pendingProductIds.current.delete(product.id);
       setOrderingProductId(null);
       return;
@@ -163,7 +167,9 @@ function ClientsContent() {
     )?.id;
 
     if (!articleId) {
-      setMessage("Toutes les unites disponibles de ce produit sont deja dans votre panier.");
+      setMessage(
+        "Toutes les unites disponibles de ce produit sont deja dans votre panier."
+      );
       pendingProductIds.current.delete(product.id);
       setOrderingProductId(null);
       return;
@@ -196,35 +202,40 @@ function ClientsContent() {
   const reservation = cartData?.getCurrentReservationByUserId?.reservation;
   const totalPrice = cartData?.getCurrentReservationByUserId?.totalPrice ?? 0;
   const cartLines = useMemo(() => {
-    return (reservation?.articles ?? []).reduce((lines: any[], article: any) => {
-      const productId = article.product?.id || article.product?.name || article.id;
-      const existingLine = lines.find((line) => line.productId === productId);
+    return (reservation?.articles ?? [])
+      .reduce((lines: any[], article: any) => {
+        const productId =
+          article.product?.id || article.product?.name || article.id;
+        const existingLine = lines.find((line) => line.productId === productId);
 
-      if (existingLine) {
-        existingLine.quantity += 1;
-        existingLine.lineTotal += article.product?.price ?? 0;
+        if (existingLine) {
+          existingLine.quantity += 1;
+          existingLine.lineTotal += article.product?.price ?? 0;
+          return lines;
+        }
+
+        lines.push({
+          productId,
+          product: article.product,
+          quantity: 1,
+          lineTotal: article.product?.price ?? 0,
+        });
+
         return lines;
-      }
-
-      lines.push({
-        productId,
-        product: article.product,
-        quantity: 1,
-        lineTotal: article.product?.price ?? 0,
-      });
-
-      return lines;
-    }, []).sort((firstLine: any, secondLine: any) =>
-      String(firstLine.product?.name ?? "").localeCompare(
-        String(secondLine.product?.name ?? ""),
-        "fr"
-      )
-    );
+      }, [])
+      .sort((firstLine: any, secondLine: any) =>
+        String(firstLine.product?.name ?? "").localeCompare(
+          String(secondLine.product?.name ?? ""),
+          "fr"
+        )
+      );
   }, [reservation?.articles]);
 
   return (
     <main className="shop-page">
-      <section className={isClient ? "shop-hero client-welcome-hero" : "shop-hero"}>
+      <section
+        className={isClient ? "shop-hero client-welcome-hero" : "shop-hero"}
+      >
         {isClient && (
           <img
             className="client-welcome-avatar"
@@ -285,7 +296,10 @@ function ClientsContent() {
           <Link className="client-mailbox-shortcut" href="/produits-likes">
             Favoris
           </Link>
-          <Link className="client-mailbox-shortcut" href="/historique-commandes">
+          <Link
+            className="client-mailbox-shortcut"
+            href="/historique-commandes"
+          >
             Historique
           </Link>
           <Link
@@ -315,12 +329,16 @@ function ClientsContent() {
       <div className="shop-message-slot">
         {message && <p className="shop-message">{message}</p>}
         {loading && <p className="shop-message">Chargement des produits...</p>}
-        {error && <p className="shop-message">Impossible de charger les produits.</p>}
+        {error && (
+          <p className="shop-message">Impossible de charger les produits.</p>
+        )}
       </div>
 
       {!loadingUser && !isLoggedIn && (
         <section className="shop-auth-callout">
-          <p>Pour commander un produit, connectez-vous ou creez un compte client.</p>
+          <p>
+            Pour commander un produit, connectez-vous ou creez un compte client.
+          </p>
           <div className="auth-link-row">
             <Link href="/connexion-client">Connexion</Link>
             <Link href="/inscription-client">Inscription</Link>
@@ -382,7 +400,9 @@ function ClientsContent() {
               <ul>
                 {cartLines.map((line: any) => (
                   <li key={line.productId}>
-                    <span className="mini-cart-product-name">{line.product.name}</span>
+                    <span className="mini-cart-product-name">
+                      {line.product.name}
+                    </span>
                     <span className="mini-cart-quantity">
                       x<strong>{line.quantity}</strong>
                     </span>
@@ -410,7 +430,7 @@ function ClientsContent() {
         <article className="client-panel">
           <h2>Historique des commandes</h2>
           <p>
-            Retrouvez vos commandes payees, vos produits, les factures et les
+            Retrouvez vos commandes payées, vos produits, les factures et les
             suivis dans une page dediee.
           </p>
           <Link className="cart-link" href="/historique-commandes">

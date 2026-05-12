@@ -40,7 +40,7 @@ function ResetPasswordContent() {
     }
 
     if (!token && !code.trim()) {
-      setMessage("Saisissez le code a 6 chiffres recu par email ou SMS.");
+      setMessage("Saisissez le code a 6 chiffres recu par email.");
       return;
     }
 
@@ -93,7 +93,7 @@ function ResetPasswordContent() {
         <p className="auth-helper">
           Choisissez un nouveau mot de passe pour retrouver l'acces a votre
           compte BeautyPlace. Vous pouvez utiliser le lien securise ou le code
-          a 6 chiffres recu par email ou SMS.
+          a 6 chiffres recu par email.
         </p>
         <form className="auth-form" onSubmit={submitReset}>
           <label>

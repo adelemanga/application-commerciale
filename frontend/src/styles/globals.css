@@ -600,7 +600,7 @@ h1 {
   justify-content: center;
   width: 100%;
   overflow: visible;
-  padding: 12px clamp(14px, 3vw, 36px);
+  padding: 10px clamp(12px, 2.4vw, 28px);
   background: rgba(255, 250, 244, 0.94);
   border-bottom: 1px solid rgba(94, 47, 79, 0.14);
   box-shadow: 0 10px 32px rgba(62, 35, 45, 0.08);
@@ -608,14 +608,14 @@ h1 {
 }
 
 .nav0 {
-  width: min(1240px, 100%);
+  width: min(1320px, 100%);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(150px, auto) minmax(0, 1fr) minmax(230px, auto);
   grid-template-areas:
     "brand main actions"
     "brand services actions";
   align-items: center;
-  gap: 8px 18px;
+  gap: 8px 16px;
 }
 
 .nav0 .nav-brand {
@@ -631,33 +631,37 @@ h1 {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .nav-links {
   grid-area: main;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .nav-services {
   grid-area: services;
+  justify-content: center;
+  padding-top: 2px;
 }
 
 .nav-actions {
   grid-area: actions;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  max-width: 330px;
 }
 
 .nav0 a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 9px 13px;
+  min-height: 40px;
+  padding: 10px 14px;
   color: var(--plum);
   border-radius: 999px;
-  font-size: 0.84rem;
+  font-size: 0.94rem;
   font-weight: 820;
   text-transform: none;
   letter-spacing: 0;
@@ -682,8 +686,8 @@ h1 {
 
 .nav-actions .cart-icon-link {
   gap: 7px;
-  min-width: 86px;
-  padding: 9px 13px;
+  min-width: 96px;
+  padding: 10px 14px;
   color: var(--plum);
   background: var(--champagne);
 }
@@ -695,7 +699,8 @@ h1 {
 
 .nav-actions .nav-user-link {
   gap: 8px;
-  max-width: 230px;
+  max-width: 100%;
+  flex: 1 1 100%;
   color: #ffffff;
   background: var(--rose);
 }
@@ -724,12 +729,12 @@ h1 {
 }
 
 .nav0 .nav-services a {
-  min-height: 32px;
-  padding: 7px 12px;
+  min-height: 36px;
+  padding: 8px 13px;
   color: var(--rose);
   background: rgba(255, 255, 255, 0.48);
   border: 1px solid rgba(190, 130, 142, 0.18);
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 780;
 }
 
@@ -2655,6 +2660,44 @@ form button:hover,
   border: 1px solid #b7dcc2;
   border-radius: 6px;
   font-weight: 780;
+}
+
+.password-reset-dropdown {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.password-reset-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 11px 14px;
+  color: var(--plum);
+  background: #fffaf4;
+  border: 1px solid rgba(94, 47, 79, 0.18);
+  border-radius: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.password-reset-toggle span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: #ffffff;
+  background: var(--plum);
+  border-radius: 999px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.password-reset-content {
+  display: grid;
+  gap: 12px;
 }
 
 .password-reset-panel {

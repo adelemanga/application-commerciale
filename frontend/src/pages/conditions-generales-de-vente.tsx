@@ -31,7 +31,7 @@ export default function CgvPage() {
             title: "Commande",
             content: [
               "Le client ajoute les produits au panier, choisit un mode de paiement, puis confirme sa commande.",
-              "Une commande payee en ligne est transmise automatiquement a l'administration. Une reservation sur place est transmise apres validation de la date de retrait.",
+              "Une commande payée en ligne est transmise automatiquement à l'administration. Une reservation sur place est transmise apres validation de la date de retrait.",
             ],
           },
           {

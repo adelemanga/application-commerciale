@@ -34,7 +34,10 @@ const getTrackingUrl = (
   const normalizedCarrier = carrier.toLowerCase();
   const encodedNumber = encodeURIComponent(trackingNumber);
 
-  if (normalizedCarrier.includes("poste") || normalizedCarrier.includes("colissimo")) {
+  if (
+    normalizedCarrier.includes("poste") ||
+    normalizedCarrier.includes("colissimo")
+  ) {
     return `https://www.laposte.fr/outils/suivre-vos-envois?code=${encodedNumber}`;
   }
 
@@ -61,11 +64,11 @@ const getDeliveryLabel = (reservation: Reservation) => {
 
 const statusLabels: Record<string, string> = {
   pending: "Panier en cours",
-  submitted: "Commande recue",
-  validated: "Commande validee",
-  ongoing: "Commande en preparation",
-  shipped: "Colis envoye",
-  ended: "Commande terminee",
+  submitted: "Commande reçue",
+  validated: "Commande validée",
+  ongoing: "Commande en préparation",
+  shipped: "Colis envoyé",
+  ended: "Commande terminée",
 };
 
 const buildDeliveryHtml = (reservation: Reservation) => {
@@ -103,7 +106,9 @@ const groupArticlesByProduct = (articles: Reservation["articles"] = []) =>
     const productKey = String(
       article.product?.id ?? article.product?.name ?? article.id
     );
-    const existingGroup = groups.find((group) => group.productKey === productKey);
+    const existingGroup = groups.find(
+      (group) => group.productKey === productKey
+    );
 
     if (existingGroup) {
       existingGroup.quantity += 1;
@@ -121,7 +126,10 @@ const groupArticlesByProduct = (articles: Reservation["articles"] = []) =>
     return groups;
   }, []);
 
-const buildOrderHtml = (reservation: Reservation, variant: "admin" | "client") => {
+const buildOrderHtml = (
+  reservation: Reservation,
+  variant: "admin" | "client"
+) => {
   const total = calculateTotal(reservation.articles ?? []);
   const productLines = groupArticlesByProduct(reservation.articles ?? []);
   const trackingUrl = getTrackingUrl(
@@ -145,10 +153,10 @@ const buildOrderHtml = (reservation: Reservation, variant: "admin" | "client") =
   const title =
     variant === "admin"
       ? "Nouvelle commande Beauty Place"
-      : "Votre recu de commande Beauty Place";
+      : "Votre reçu de commande Beauty Place";
   const intro =
     variant === "admin"
-      ? "Une nouvelle commande vient d'etre envoyee a l'administration."
+      ? "Une nouvelle commande vient d'être envoyée a l'administration."
       : "Merci pour votre commande. Voici votre recu avec le recapitulatif de facturation.";
   const products = productLines
     .map(
@@ -202,7 +210,9 @@ const buildOrderHtml = (reservation: Reservation, variant: "admin" | "client") =
         </thead>
         <tbody>${products}</tbody>
       </table>
-      <p style="font-size:18px;"><strong>Total :</strong> ${formatPrice(total)}</p>
+      <p style="font-size:18px;"><strong>Total :</strong> ${formatPrice(
+        total
+      )}</p>
       <p style="margin-top:20px;color:#76636c;">
         Conservez cet email comme justificatif. Le suivi est disponible dans
         votre espace client, rubrique Suivi commandes.
@@ -266,7 +276,9 @@ export const sendTrackingUpdateEmail = async (reservation: Reservation) => {
     html: `
       <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
         <h1 style="color:#5e2f4f;">Votre colis est envoye</h1>
-        <p>Votre commande Beauty Place #${reservation.id} a ete confiee au transporteur.</p>
+        <p>Votre commande Beauty Place #${
+          reservation.id
+        } a ete confiee au transporteur.</p>
         <p><strong>Transporteur :</strong> ${
           reservation.shippingCarrier || "A definir"
         }</p>
@@ -307,7 +319,9 @@ export const sendOrderStatusUpdateEmail = async (reservation: Reservation) => {
       <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
         <h1 style="color:#5e2f4f;">Votre commande avance</h1>
         <p>Bonjour ${reservation.user?.firstname ?? ""},</p>
-        <p>Le statut de votre commande Beauty Place #${reservation.id} a ete mis a jour.</p>
+        <p>Le statut de votre commande Beauty Place #${
+          reservation.id
+        } a ete mis a jour.</p>
         <p><strong>Nouveau statut :</strong> ${statusLabel}</p>
         <p><strong>Paiement :</strong> ${
           reservation.paymentStatus === "paid" ? "paye" : "a payer"
@@ -353,11 +367,13 @@ export const sendOrderReceivedEmail = async (reservation: Reservation) => {
   await transporter.sendMail({
     from,
     to: adminEmail,
-    subject: `Commande recue par le client #${reservation.id}`,
+    subject: `Commande reçue par le client #${reservation.id}`,
     html: `
       <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
-        <h1 style="color:#5e2f4f;">Commande recue par le client</h1>
-        <p>Le client a confirme la reception de sa commande Beauty Place #${reservation.id}.</p>
+        <h1 style="color:#5e2f4f;">Commande reçue par le client</h1>
+        <p>Le client a confirme la reception de sa commande Beauty Place #${
+          reservation.id
+        }.</p>
         <p><strong>Client :</strong> ${clientName || "Client"}</p>
         <p><strong>Email :</strong> ${reservation.user?.email ?? ""}</p>
         <p><strong>Transporteur :</strong> ${

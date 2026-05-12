@@ -5,22 +5,32 @@ import { FormEvent, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import client from "../graphql/client";
-import { REQUEST_PASSWORD_RESET_CODE } from "../graphql/mutations";
+import {
+  REQUEST_PASSWORD_RESET_CODE,
+  RESET_PASSWORD_WITH_CODE,
+} from "../graphql/mutations";
 import { LOGIN_CLIENT, WHO_AM_I } from "../graphql/queries";
 
 function ConnexionClientContent() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [resetEmail, setResetEmail] = useState("");
-  const [resetChannel, setResetChannel] = useState("email");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [resetMessage, setResetMessage] = useState("");
+  const [passwordChangeMessage, setPasswordChangeMessage] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [isResetOpen, setIsResetOpen] = useState(false);
   const [loginClient, { loading }] = useLazyQuery(LOGIN_CLIENT, {
     fetchPolicy: "network-only",
   });
   const [requestPasswordResetCode, { loading: resetLoading }] = useMutation(
     REQUEST_PASSWORD_RESET_CODE
+  );
+  const [resetPasswordWithCode, { loading: changingPassword }] = useMutation(
+    RESET_PASSWORD_WITH_CODE
   );
 
   const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
@@ -53,6 +63,7 @@ function ConnexionClientContent() {
   const submitPasswordReset = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setResetMessage("");
+    setPasswordChangeMessage("");
 
     try {
       const targetEmail = (resetEmail || email).trim().toLowerCase();
@@ -64,20 +75,78 @@ function ConnexionClientContent() {
       const result = await requestPasswordResetCode({
         variables: {
           email: targetEmail,
-          channel: resetChannel,
+          channel: "email",
           frontendUrl: window.location.origin,
         },
       });
 
       setResetMessage(
-        result.data?.requestPasswordResetCode ||
-          "Code de recuperation envoye."
+        result.data?.requestPasswordResetCode || "Code de recuperation envoye."
       );
     } catch (error: any) {
       const errorMessage = error?.graphQLErrors?.[0]?.message;
       setResetMessage(
         errorMessage ||
           "Impossible d'envoyer le code de recuperation pour le moment."
+      );
+    }
+  };
+
+  const submitNewPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setResetMessage("");
+    setPasswordChangeMessage("");
+
+    const targetEmail = (resetEmail || email).trim().toLowerCase();
+    const cleanCode = resetCode.trim();
+
+    if (!targetEmail) {
+      setPasswordChangeMessage(
+        "Indiquez votre email avant de valider le code."
+      );
+      return;
+    }
+
+    if (!cleanCode) {
+      setPasswordChangeMessage(
+        "Saisissez le code a 6 chiffres recu par email."
+      );
+      return;
+    }
+
+    if (newPassword.trim().length < 6) {
+      setPasswordChangeMessage(
+        "Le nouveau mot de passe doit contenir au moins 6 caracteres."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordChangeMessage("Les deux mots de passe ne correspondent pas.");
+      return;
+    }
+
+    try {
+      const result = await resetPasswordWithCode({
+        variables: {
+          email: targetEmail,
+          code: cleanCode,
+          password: newPassword,
+        },
+      });
+
+      setPasswordChangeMessage(
+        result.data?.resetPasswordWithCode ||
+          "Mot de passe modifie. Vous pouvez vous connecter."
+      );
+      setPassword("");
+      setResetCode("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (error: any) {
+      const errorMessage = error?.graphQLErrors?.[0]?.message;
+      setPasswordChangeMessage(
+        errorMessage || "Impossible de modifier ce mot de passe."
       );
     }
   };
@@ -115,51 +184,100 @@ function ConnexionClientContent() {
             </label>
             {message && <p className="auth-error">{message}</p>}
             <button type="submit" disabled={loading}>
-              Acceder a mon compte
+              Acceder à mon compte
             </button>
           </form>
 
-          <form className="password-reset-panel" onSubmit={submitPasswordReset}>
-            <div>
-              <h2>Mot de passe oublie ?</h2>
-              <p>
-                Recevez un code a 6 chiffres par email ou SMS pour creer un
-                nouveau mot de passe.
-              </p>
-            </div>
-            <label>
-              Email de recuperation
-              <input
-                type="email"
-                value={resetEmail}
-                onChange={(event) => setResetEmail(event.target.value)}
-                placeholder={email || "votre@email.com"}
-              />
-            </label>
-            <div className="reset-channel-options" role="group" aria-label="Mode de recuperation">
-              <button
-                type="button"
-                className={resetChannel === "email" ? "active" : ""}
-                onClick={() => setResetChannel("email")}
-              >
-                Email
-              </button>
-              <button
-                type="button"
-                className={resetChannel === "sms" ? "active" : ""}
-                onClick={() => setResetChannel("sms")}
-              >
-                SMS
-              </button>
-            </div>
-            {resetMessage && <p className="auth-info">{resetMessage}</p>}
-            <button type="submit" disabled={resetLoading}>
-              Recevoir le code
+          <section className="password-reset-dropdown">
+            <button
+              type="button"
+              className="password-reset-toggle"
+              aria-expanded={isResetOpen}
+              onClick={() => setIsResetOpen((current) => !current)}
+            >
+              Mot de passe oublie ?<span>{isResetOpen ? "−" : "+"}</span>
             </button>
-            <Link className="auth-secondary-link" href="/reinitialiser-mot-de-passe">
-              J'ai deja un code
-            </Link>
-          </form>
+
+            {isResetOpen && (
+              <div className="password-reset-content">
+                <form
+                  className="password-reset-panel"
+                  onSubmit={submitPasswordReset}
+                >
+                  <div>
+                    <h2>Recevoir un code</h2>
+                    <p>
+                      Recevez un code a 6 chiffres par email pour creer un
+                      nouveau mot de passe.
+                    </p>
+                  </div>
+                  <label>
+                    Email de recuperation
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(event) => setResetEmail(event.target.value)}
+                      placeholder={email || "votre@email.com"}
+                    />
+                  </label>
+                  {resetMessage && <p className="auth-info">{resetMessage}</p>}
+                  <button type="submit" disabled={resetLoading}>
+                    Recevoir le code
+                  </button>
+                </form>
+
+                <form
+                  className="password-reset-panel"
+                  onSubmit={submitNewPassword}
+                >
+                  <div>
+                    <h2>Saisir le code recu</h2>
+                    <p>
+                      Entrez le code envoye par email, puis choisissez votre
+                      nouveau mot de passe.
+                    </p>
+                  </div>
+                  <label>
+                    Code a 6 chiffres
+                    <input
+                      inputMode="numeric"
+                      value={resetCode}
+                      onChange={(event) => setResetCode(event.target.value)}
+                      placeholder="123456"
+                    />
+                  </label>
+                  <label>
+                    Nouveau mot de passe
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Confirmer le mot de passe
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmNewPassword}
+                      onChange={(event) =>
+                        setConfirmNewPassword(event.target.value)
+                      }
+                    />
+                  </label>
+                  {passwordChangeMessage && (
+                    <p className="auth-info">{passwordChangeMessage}</p>
+                  )}
+                  <button type="submit" disabled={changingPassword}>
+                    {changingPassword
+                      ? "Verification..."
+                      : "Changer mon mot de passe"}
+                  </button>
+                </form>
+              </div>
+            )}
+          </section>
         </section>
 
         <section className="auth-panel auth-switch-panel">

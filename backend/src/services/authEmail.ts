@@ -24,7 +24,7 @@ export const sendPasswordResetEmail = async (user: User, resetUrl: string) => {
 
   if (!transporter || !from) {
     throw new Error(
-      "Email de recuperation non envoye: configurez GMAIL_USER et GMAIL_APP_PASSWORD."
+      "Email de recuperation non envoyé: configurez GMAIL_USER et GMAIL_APP_PASSWORD."
     );
   }
 
@@ -36,12 +36,12 @@ export const sendPasswordResetEmail = async (user: User, resetUrl: string) => {
       <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
         <h1 style="color:#5e2f4f;">Reinitialisation du mot de passe</h1>
         <p>Bonjour ${user.firstname || ""},</p>
-        <p>Vous avez demande a recuperer l'acces a votre compte BeautyPlace.</p>
+        <p>Vous avez demande a recuperer l'accès à votre compte BeautyPlace.</p>
         <p>
           <strong>Identifiant de connexion :</strong> ${user.email}
         </p>
         <p>
-          Pour votre securite, votre ancien mot de passe n'est jamais envoye par email.
+          Pour votre securite, votre ancien mot de passe n'est jamais envoyé par email.
           Cliquez sur le bouton ci-dessous pour creer un nouveau mot de passe.
         </p>
         <p>
@@ -49,8 +49,8 @@ export const sendPasswordResetEmail = async (user: User, resetUrl: string) => {
             Creer un nouveau mot de passe
           </a>
         </p>
-        <p>Ce lien expire dans 1 heure. Si vous n'etes pas a l'origine de cette demande, vous pouvez ignorer cet email.</p>
-        <p style="color:#76636c;">L'equipe BeautyPlace</p>
+        <p>Ce lien expire dans 1 heure. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
+        <p style="color:#76636c;">L'équipe BeautyPlace</p>
       </div>
     `,
   });
@@ -66,17 +66,17 @@ export const sendPasswordResetCodeEmail = async (
 
   if (!transporter || !from) {
     throw new Error(
-      "Email de recuperation non envoye: configurez GMAIL_USER et GMAIL_APP_PASSWORD."
+      "Email de récuperation non envoyé: configurez GMAIL_USER et GMAIL_APP_PASSWORD."
     );
   }
 
   await transporter.sendMail({
     from,
     to: user.email,
-    subject: "Code de recuperation BeautyPlace",
+    subject: "Code de récupération BeautyPlace",
     html: `
       <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
-        <h1 style="color:#5e2f4f;">Code de recuperation</h1>
+        <h1 style="color:#5e2f4f;">Code de récupération</h1>
         <p>Bonjour ${user.firstname || ""},</p>
         <p>Voici votre code pour creer un nouveau mot de passe BeautyPlace.</p>
         <p><strong>Identifiant de connexion :</strong> ${user.email}</p>
@@ -87,7 +87,7 @@ export const sendPasswordResetCodeEmail = async (
           </a>
         </p>
         <p>Ce code expire dans 15 minutes. Ne le partagez avec personne.</p>
-        <p style="color:#76636c;">L'equipe BeautyPlace</p>
+        <p style="color:#76636c;">L'équipe BeautyPlace</p>
       </div>
     `,
   });

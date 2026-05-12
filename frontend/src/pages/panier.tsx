@@ -24,7 +24,9 @@ const formatPrice = (price?: number) =>
 
 function PanierContent() {
   const [message, setMessage] = useState("");
-  const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
+  const [updatingProductId, setUpdatingProductId] = useState<string | null>(
+    null
+  );
   const pendingArticleIds = useRef<Set<string>>(new Set());
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "cache-and-network",
@@ -58,32 +60,36 @@ function PanierContent() {
     [reservation?.articles]
   );
   const cartLines = useMemo(() => {
-    return articles.filter((article: any) => Number(article.product?.price) > 0).reduce((lines: any[], article: any) => {
-      const productId = article.product?.id || article.product?.name || article.id;
-      const existingLine = lines.find((line) => line.productId === productId);
+    return articles
+      .filter((article: any) => Number(article.product?.price) > 0)
+      .reduce((lines: any[], article: any) => {
+        const productId =
+          article.product?.id || article.product?.name || article.id;
+        const existingLine = lines.find((line) => line.productId === productId);
 
-      if (existingLine) {
-        existingLine.articles.push(article);
-        existingLine.quantity += 1;
-        existingLine.lineTotal += article.product?.price ?? 0;
+        if (existingLine) {
+          existingLine.articles.push(article);
+          existingLine.quantity += 1;
+          existingLine.lineTotal += article.product?.price ?? 0;
+          return lines;
+        }
+
+        lines.push({
+          productId,
+          product: article.product,
+          articles: [article],
+          quantity: 1,
+          lineTotal: article.product?.price ?? 0,
+        });
+
         return lines;
-      }
-
-      lines.push({
-        productId,
-        product: article.product,
-        articles: [article],
-        quantity: 1,
-        lineTotal: article.product?.price ?? 0,
-      });
-
-      return lines;
-    }, []).sort((firstLine: any, secondLine: any) =>
-      String(firstLine.product?.name ?? "").localeCompare(
-        String(secondLine.product?.name ?? ""),
-        "fr"
-      )
-    );
+      }, [])
+      .sort((firstLine: any, secondLine: any) =>
+        String(firstLine.product?.name ?? "").localeCompare(
+          String(secondLine.product?.name ?? ""),
+          "fr"
+        )
+      );
   }, [articles]);
   const productsById = useMemo(() => {
     return (productsData?.getAllProducts ?? []).reduce(
@@ -161,7 +167,8 @@ function PanierContent() {
   const payableTotalPrice = useMemo(
     () =>
       payableArticles.reduce(
-        (total: number, article: any) => total + (Number(article.product?.price) || 0),
+        (total: number, article: any) =>
+          total + (Number(article.product?.price) || 0),
         0
       ),
     [payableArticles]
@@ -226,7 +233,9 @@ function PanierContent() {
         {(loading || loadingUser) && !reservation && (
           <p className="shop-message">Chargement du panier...</p>
         )}
-        {error && <p className="shop-message">Impossible de charger le panier.</p>}
+        {error && (
+          <p className="shop-message">Impossible de charger le panier.</p>
+        )}
       </div>
 
       {!isLoggedIn ? (
@@ -259,13 +268,20 @@ function PanierContent() {
                     <span>Prix unite : {formatPrice(line.product.price)}</span>
                   </div>
                 </div>
-                <strong className="cart-line-total">{formatPrice(line.lineTotal)}</strong>
+                <strong className="cart-line-total">
+                  {formatPrice(line.lineTotal)}
+                </strong>
                 <div className="cart-line-actions">
-                  <div className="cart-quantity-actions" aria-label="Modifier la quantite">
+                  <div
+                    className="cart-quantity-actions"
+                    aria-label="Modifier la quantite"
+                  >
                     <button
                       type="button"
                       aria-disabled={updatingProductId === line.productId}
-                      onClick={() => removeArticle(line.articles[0].id, line.productId)}
+                      onClick={() =>
+                        removeArticle(line.articles[0].id, line.productId)
+                      }
                       aria-label={`Reduire la quantite de ${line.product.name}`}
                     >
                       -
@@ -303,7 +319,7 @@ function PanierContent() {
             <div className="payment-box">
               <span>Choisir livraison ou retrait</span>
               <p>
-                Toutes les commandes sont payees par carte bancaire. Vous
+                Toutes les commandes sont payées par carte bancaire. Vous
                 choisirez ensuite la livraison a domicile, le point relais ou le
                 retrait en magasin.
               </p>
@@ -311,7 +327,9 @@ function PanierContent() {
             <div className="cart-payment-actions">
               <Link
                 className={
-                  payableArticles.length ? "cart-submit-button" : "cart-submit-button disabled-link"
+                  payableArticles.length
+                    ? "cart-submit-button"
+                    : "cart-submit-button disabled-link"
                 }
                 href={payableArticles.length ? "/paiement-carte" : "/produits"}
               >
