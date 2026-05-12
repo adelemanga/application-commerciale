@@ -16,6 +16,7 @@ import {
   CREATE_NEW_ARTICLE,
   CREATE_NEW_PRODUCT,
   DELETE_PRODUCT,
+  DELETE_RESERVATION_ADMIN,
   EDIT_PRODUCT,
   SET_PRODUCT_STOCK,
   UPDATE_RESERVATION_ADMIN,
@@ -26,6 +27,7 @@ import {
   WHO_AM_I,
 } from "../graphql/queries";
 import { Product, Role } from "../interface/types";
+import { defaultProductImage, getProductImage } from "../utils/productImages";
 
 type ProductWithArticles = Product & {
   articles?: { id: string }[];
@@ -116,6 +118,48 @@ const groupArticlesByProduct = (articles: any[] = []) =>
     return groups;
   }, []);
 
+const getStockCount = (product: ProductWithArticles) =>
+  product.stockCount ?? product.articles?.length ?? 0;
+
+const getOrderedArticles = (reservation: any) => {
+  if (reservation.articles?.length) {
+    return reservation.articles.map((article: any) => ({
+      ...article,
+      product: {
+        ...article.product,
+        imgUrl: getProductImage(article.product),
+      },
+    }));
+  }
+
+  if (!reservation.articlesSnapshot) {
+    return [];
+  }
+
+  try {
+    const snapshot = JSON.parse(reservation.articlesSnapshot);
+
+    if (!Array.isArray(snapshot)) {
+      return [];
+    }
+
+    return snapshot.map((item: any, index: number) => ({
+      id: item.articleId || `${item.productId || "snapshot"}-${index}`,
+      product: {
+        id: item.productId || item.articleId || `snapshot-${index}`,
+        name: item.name || "Produit BeautyPlace",
+        price: Number(item.price) || 0,
+        imgUrl: getProductImage({
+          imgUrl: item.imgUrl,
+          name: item.name,
+        }),
+      },
+    }));
+  } catch {
+    return [];
+  }
+};
+
 function AdminContent() {
   const [form, setForm] = useState<ProductForm>(emptyProduct);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -127,6 +171,9 @@ function AdminContent() {
   const [imageInputKey, setImageInputKey] = useState(0);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
   const [orderDrafts, setOrderDrafts] = useState<Record<string, OrderDraft>>({});
+  const [orderFeedbacks, setOrderFeedbacks] = useState<
+    Record<string, { type: "success" | "error"; message: string }>
+  >({});
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [updatingStockProductId, setUpdatingStockProductId] = useState<string | null>(
     null
@@ -158,6 +205,12 @@ function AdminContent() {
   const [updateReservationAdmin] = useMutation(UPDATE_RESERVATION_ADMIN, {
     refetchQueries: [{ query: GET_ALL_RESERVATIONS }],
   });
+  const [deleteReservationAdmin, { loading: deletingReservation }] = useMutation(
+    DELETE_RESERVATION_ADMIN,
+    {
+      refetchQueries: [{ query: GET_ALL_RESERVATIONS }],
+    }
+  );
 
   const products = useMemo<ProductWithArticles[]>(
     () => data?.getAllProducts ?? [],
@@ -166,19 +219,17 @@ function AdminContent() {
 
   const reservations = (reservationsData?.getAllReservations ?? []).filter(
     (reservation: any) => {
-      const total = reservation.articles.reduce(
+      const orderedArticles = getOrderedArticles(reservation);
+      const total = orderedArticles.reduce(
         (sum: number, article: any) => sum + (article.product?.price ?? 0),
         0
       );
-      const isTreatedPickup =
-        reservation.paymentStatus === "paid" && !reservation.stripeSessionId;
 
       return (
-        reservation.articles.length > 0 &&
-        total > 0 &&
-        reservation.status !== "pending" &&
         reservation.status !== "ended" &&
-        !isTreatedPickup
+        reservation.paymentStatus === "paid" &&
+        orderedArticles.length > 0 &&
+        total > 0
       );
     }
   );
@@ -188,7 +239,7 @@ function AdminContent() {
       const next = { ...current };
       products.forEach((product) => {
         if (next[product.id] === undefined) {
-          next[product.id] = String(product.articles?.length ?? 0);
+          next[product.id] = String(getStockCount(product));
         }
       });
       return next;
@@ -409,7 +460,7 @@ function AdminContent() {
       category: product.category ?? "manucure",
       imgUrl: product.imgUrl ?? "",
       price: String(product.price ?? ""),
-      stock: String(product.articles?.length ?? 0),
+      stock: String(getStockCount(product)),
     });
     setImageInputKey((current) => current + 1);
     window.setTimeout(() => {
@@ -428,6 +479,11 @@ function AdminContent() {
     trackingNumber = ""
   ) => {
     setNotice("");
+    setOrderFeedbacks((current) => {
+      const next = { ...current };
+      delete next[reservationId];
+      return next;
+    });
     setUpdatingOrderId(reservationId);
     try {
       await updateReservationAdmin({
@@ -440,15 +496,54 @@ function AdminContent() {
         },
       });
       setNotice("Commande mise a jour.");
+      setOrderFeedbacks((current) => ({
+        ...current,
+        [reservationId]: {
+          type: "success",
+          message: "Modifications enregistrees avec succes.",
+        },
+      }));
+      setOrderDrafts((currentDrafts) => {
+        const nextDrafts = { ...currentDrafts };
+        delete nextDrafts[reservationId];
+        return nextDrafts;
+      });
+    } catch (error: any) {
+      const errorMessage =
+        error?.graphQLErrors?.[0]?.message ||
+        error?.networkError?.message ||
+        "Impossible de modifier cette commande.";
+
+      setNotice("Impossible de modifier cette commande.");
+      setOrderFeedbacks((current) => ({
+        ...current,
+        [reservationId]: {
+          type: "error",
+          message: errorMessage,
+        },
+      }));
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
+  const deleteOrderFromAdmin = async (reservationId: string) => {
+    setNotice("");
+
+    try {
+      await deleteReservationAdmin({
+        variables: {
+          reservationId,
+        },
+      });
+      setNotice("Commande supprimee de la liste administrateur.");
       setOrderDrafts((currentDrafts) => {
         const nextDrafts = { ...currentDrafts };
         delete nextDrafts[reservationId];
         return nextDrafts;
       });
     } catch {
-      setNotice("Impossible de modifier cette commande.");
-    } finally {
-      setUpdatingOrderId(null);
+      setNotice("Impossible de supprimer cette commande.");
     }
   };
 
@@ -488,7 +583,8 @@ function AdminContent() {
           <a href="#commandes-clients">Reservations</a>
           <Link href="/admin-messages">Messages</Link>
           <Link href="/admin-commandes-traitees">Commandes traitees</Link>
-          <a href="#gestion-produits">Produits</a>
+          <Link href="/admin-produits">Produits</Link>
+          <Link href="/admin-nouveau-produit">Nouveau produit</Link>
           <Link href="/inscription-administrateur">Nouvel admin</Link>
         </div>
       </section>
@@ -522,11 +618,12 @@ function AdminContent() {
         )}
         <div className="orders-table">
           {reservations.map((reservation: any) => {
-            const total = reservation.articles.reduce(
+            const orderedArticles = getOrderedArticles(reservation);
+            const total = orderedArticles.reduce(
               (sum: number, article: any) => sum + (article.product?.price ?? 0),
               0
             );
-            const productLines = groupArticlesByProduct(reservation.articles);
+            const productLines = groupArticlesByProduct(orderedArticles);
             const isOnlinePaid =
               reservation.paymentMethod === "card" &&
               reservation.paymentStatus === "paid" &&
@@ -608,15 +705,19 @@ function AdminContent() {
                 <div className="order-products">
                   <span className="admin-mini-label">Produits commandes</span>
                   <p>
-                    {reservation.articles.length} produit(s),{" "}
+                    {orderedArticles.length} produit(s),{" "}
                     {productLines.length} reference(s) - {formatPrice(total)}
                   </p>
                   <ul>
-                    {productLines.map((line) => (
+                    {productLines.length > 0 ? (
+                      productLines.map((line) => (
                       <li key={line.productKey}>
                         <img
-                          src={line.product?.imgUrl}
+                          src={getProductImage(line.product)}
                           alt={line.product?.name}
+                          onError={(event) => {
+                            event.currentTarget.src = defaultProductImage;
+                          }}
                         />
                         <span>{line.product?.name}</span>
                         <span className="order-product-quantity">
@@ -624,7 +725,12 @@ function AdminContent() {
                         </span>
                         <strong>{formatPrice(line.total)}</strong>
                       </li>
-                    ))}
+                      ))
+                    ) : (
+                      <li className="order-product-empty">
+                        Donnees produit non disponibles dans cette reservation.
+                      </li>
+                    )}
                   </ul>
                 </div>
                 <div className="order-statuses">
@@ -720,6 +826,13 @@ function AdminContent() {
                   <span className={`status-pill ${paymentModeClass}`}>
                     {paymentModeLabel}
                   </span>
+                  {orderFeedbacks[reservation.id] && (
+                    <p
+                      className={`order-feedback order-feedback-${orderFeedbacks[reservation.id].type}`}
+                    >
+                      {orderFeedbacks[reservation.id].message}
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="save-order-button"
@@ -741,6 +854,14 @@ function AdminContent() {
                       ? "Enregistrement..."
                       : "Enregistrer les modifications"}
                   </button>
+                  <button
+                    type="button"
+                    className="danger-button"
+                    disabled={deletingReservation}
+                    onClick={() => deleteOrderFromAdmin(reservation.id)}
+                  >
+                    Supprimer cette commande
+                  </button>
                 </div>
               </article>
             );
@@ -748,19 +869,25 @@ function AdminContent() {
         </div>
       </section>
 
-      <section className="admin-layout" id="gestion-produits">
-        <form
-          className="admin-form"
-          onSubmit={submitProduct}
-          ref={productFormRef}
-          noValidate
-        >
-          <h2>{editingProductId ? "Modifier le produit" : "Nouveau produit"}</h2>
-          {editingProductId && (
+      <section
+        className={
+          editingProductId
+            ? "admin-layout"
+            : "admin-layout admin-products-only"
+        }
+        id="gestion-produits"
+      >
+        {editingProductId ? (
+          <form
+            className="admin-form"
+            onSubmit={submitProduct}
+            ref={productFormRef}
+            noValidate
+          >
+          <h2>Modifier le produit</h2>
             <p className="admin-editing-note">
               Produit en modification : validez le formulaire pour enregistrer.
             </p>
-          )}
           <label>
             Nom
             <input
@@ -839,18 +966,17 @@ function AdminContent() {
             />
           </label>
           <button type="submit" disabled={creating || editing}>
-            {editingProductId ? "Enregistrer les modifications" : "Ajouter le produit"}
+            Enregistrer les modifications
           </button>
-          {editingProductId && (
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={resetProductForm}
-            >
-              Annuler
-            </button>
-          )}
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={resetProductForm}
+          >
+            Annuler
+          </button>
         </form>
+        ) : null}
 
         <section className="admin-panel">
           <div className="admin-section-heading compact">
@@ -858,14 +984,25 @@ function AdminContent() {
               <p className="shop-kicker">Catalogue</p>
               <h2>Liste des produits</h2>
             </div>
-            <strong>{products.length} produit(s)</strong>
+            <div className="admin-heading-actions">
+              <strong>{products.length} produit(s)</strong>
+              <Link className="secondary-button" href="/admin-nouveau-produit">
+                Nouveau produit
+              </Link>
+            </div>
           </div>
           {loading && <p>Chargement...</p>}
           {error && <p>Impossible de charger les produits.</p>}
           <div className="admin-product-list">
             {products.map((product) => (
               <article className="admin-product" key={product.id}>
-                <img src={product.imgUrl} alt={product.name} />
+                <img
+                  src={getProductImage(product)}
+                  alt={product.name}
+                  onError={(event) => {
+                    event.currentTarget.src = defaultProductImage;
+                  }}
+                />
                 <div>
                   <h3>{product.name}</h3>
                   <p className="admin-product-description">{product.description}</p>
@@ -874,7 +1011,7 @@ function AdminContent() {
                   </span>
                   <p>{formatPrice(product.price)}</p>
                   <p className="stock-count">
-                    Stock actuel : <strong>{product.articles?.length ?? 0}</strong>
+                    Stock actuel : <strong>{getStockCount(product)}</strong>
                   </p>
                 </div>
                 <div className="stock-actions-panel">
@@ -885,7 +1022,7 @@ function AdminContent() {
                         type="number"
                         min="0"
                         step="1"
-                        value={stockInputs[product.id] ?? product.articles?.length ?? 0}
+                        value={stockInputs[product.id] ?? getStockCount(product)}
                         onChange={(event) =>
                           changeStockInput(product.id, event.target.value)
                         }

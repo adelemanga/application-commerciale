@@ -94,6 +94,10 @@ export class Reservation extends BaseEntity {
   @Column({ type: "varchar", nullable: true })
   trackingNumber?: string | null;
 
+  @Field({ nullable: true })
+  @Column({ type: "text", nullable: true })
+  articlesSnapshot?: string;
+
   @Field()
   @Column({ default: PaymentStatus.Pending })
   paymentStatus: PaymentStatus;
@@ -101,6 +105,21 @@ export class Reservation extends BaseEntity {
   @Field()
   @Column({ default: false })
   archivedByAdmin: boolean;
+
+  @Field()
+  @Column({ default: false })
+  deletedFromAdminHistory: boolean;
+
+  @Column({ default: false })
+  removedFromAdminHistory: boolean;
+
+  @Field()
+  @Column({ default: false })
+  hiddenByClient: boolean;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  confirmationEmailSentAt?: Date;
 
   @Field(() => User)
   @ManyToOne(() => User, (user) => user.reservations)

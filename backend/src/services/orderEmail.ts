@@ -59,6 +59,15 @@ const getDeliveryLabel = (reservation: Reservation) => {
   return "Livraison a domicile";
 };
 
+const statusLabels: Record<string, string> = {
+  pending: "Panier en cours",
+  submitted: "Commande recue",
+  validated: "Commande validee",
+  ongoing: "Commande en preparation",
+  shipped: "Colis envoye",
+  ended: "Commande terminee",
+};
+
 const buildDeliveryHtml = (reservation: Reservation) => {
   if (reservation.deliveryMethod === "store") {
     return `
@@ -268,6 +277,59 @@ export const sendTrackingUpdateEmail = async (reservation: Reservation) => {
             : ""
         }
         <p>Le recapitulatif reste disponible dans votre espace client, rubrique Suivi commandes.</p>
+      </div>
+    `,
+  });
+};
+
+export const sendOrderStatusUpdateEmail = async (reservation: Reservation) => {
+  const transporter = getTransporter();
+  const from = process.env.GMAIL_USER;
+  const clientEmail = reservation.user?.email;
+  const trackingUrl = getTrackingUrl(
+    reservation.shippingCarrier,
+    reservation.trackingNumber
+  );
+  const statusLabel = statusLabels[reservation.status] || reservation.status;
+
+  if (!transporter || !from || !clientEmail) {
+    console.warn(
+      "Email statut non envoye: configurez GMAIL_USER et GMAIL_APP_PASSWORD."
+    );
+    return;
+  }
+
+  await transporter.sendMail({
+    from,
+    to: clientEmail,
+    subject: `Avancement de votre commande Beauty Place #${reservation.id}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;color:#261922;line-height:1.5;">
+        <h1 style="color:#5e2f4f;">Votre commande avance</h1>
+        <p>Bonjour ${reservation.user?.firstname ?? ""},</p>
+        <p>Le statut de votre commande Beauty Place #${reservation.id} a ete mis a jour.</p>
+        <p><strong>Nouveau statut :</strong> ${statusLabel}</p>
+        <p><strong>Paiement :</strong> ${
+          reservation.paymentStatus === "paid" ? "paye" : "a payer"
+        }</p>
+        <p><strong>Mode :</strong> ${getDeliveryLabel(reservation)}</p>
+        ${
+          reservation.shippingCarrier || reservation.trackingNumber
+            ? `<p><strong>Transporteur :</strong> ${
+                reservation.shippingCarrier || "A definir"
+              }</p>
+              <p><strong>Numero de suivi :</strong> ${
+                reservation.trackingNumber || "A venir"
+              }</p>`
+            : ""
+        }
+        ${
+          trackingUrl
+            ? `<p><a href="${trackingUrl}" style="color:#5e2f4f;font-weight:bold;">Suivre mon colis</a></p>`
+            : ""
+        }
+        <p>Le detail reste disponible dans votre espace client, rubrique Suivi et facture.</p>
+        <p style="color:#76636c;">L'equipe BeautyPlace</p>
       </div>
     `,
   });

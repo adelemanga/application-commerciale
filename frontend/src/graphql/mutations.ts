@@ -149,6 +149,42 @@ export const CREATE_ADMIN = gql`
   }
 `;
 
+export const REQUEST_PASSWORD_RESET = gql`
+  mutation RequestPasswordReset($email: String!, $frontendUrl: String) {
+    requestPasswordReset(email: $email, frontendUrl: $frontendUrl)
+  }
+`;
+
+export const REQUEST_PASSWORD_RESET_CODE = gql`
+  mutation RequestPasswordResetCode(
+    $email: String!
+    $channel: String!
+    $frontendUrl: String
+  ) {
+    requestPasswordResetCode(
+      email: $email
+      channel: $channel
+      frontendUrl: $frontendUrl
+    )
+  }
+`;
+
+export const RESET_PASSWORD = gql`
+  mutation ResetPassword($email: String!, $token: String!, $password: String!) {
+    resetPassword(email: $email, token: $token, password: $password)
+  }
+`;
+
+export const RESET_PASSWORD_WITH_CODE = gql`
+  mutation ResetPasswordWithCode(
+    $email: String!
+    $code: String!
+    $password: String!
+  ) {
+    resetPasswordWithCode(email: $email, code: $code, password: $password)
+  }
+`;
+
 export const DELETE_PRODUCT = gql`
   mutation DeleteProduct($deleteProductId: ID!) {
     deleteProduct(id: $deleteProductId)
@@ -171,6 +207,7 @@ export const SET_PRODUCT_STOCK = gql`
   mutation SetProductStock($productId: ID!, $quantity: Float!) {
     setProductStock(productId: $productId, quantity: $quantity) {
       id
+      stockCount
       articles {
         id
       }
@@ -306,9 +343,31 @@ export const CONFIRM_RESERVATION_RECEIVED = gql`
   }
 `;
 
+export const HIDE_RESERVATION_FROM_CLIENT = gql`
+  mutation HideReservationFromClient($reservationId: ID!) {
+    hideReservationFromClient(reservationId: $reservationId)
+  }
+`;
+
 export const DELETE_TREATED_RESERVATION_ADMIN = gql`
   mutation DeleteTreatedReservationAdmin($reservationId: ID!) {
     deleteTreatedReservationAdmin(reservationId: $reservationId)
+  }
+`;
+
+export const DELETE_RESERVATION_ADMIN = gql`
+  mutation DeleteReservationAdmin($reservationId: ID!) {
+    deleteReservationAdmin(reservationId: $reservationId)
+  }
+`;
+
+export const RESTORE_TREATED_RESERVATION_ADMIN = gql`
+  mutation RestoreTreatedReservationAdmin($reservationId: ID!) {
+    restoreTreatedReservationAdmin(reservationId: $reservationId) {
+      id
+      status
+      paymentStatus
+    }
   }
 `;
 

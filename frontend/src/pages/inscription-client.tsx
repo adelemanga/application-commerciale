@@ -8,6 +8,11 @@ import Header from "@/components/Header";
 import client from "../graphql/client";
 import { CREATE_NEW_USER } from "../graphql/mutations";
 import { WHO_AM_I } from "../graphql/queries";
+import {
+  isValidPhoneNumber,
+  normalizePhoneNumber,
+  phoneHelperText,
+} from "../utils/phone";
 
 const resizeProfilePhoto = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -54,7 +59,39 @@ function InscriptionClientContent() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [firstnameError, setFirstnameError] = useState("");
+  const [lastnameError, setLastnameError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [createUser, { loading }] = useMutation(CREATE_NEW_USER);
+
+  const validateRequiredFields = () => {
+    const cleanFirstname = firstname.trim();
+    const cleanLastname = lastname.trim();
+    const cleanEmail = email.trim();
+    const cleanAddress = address.trim();
+
+    if (!cleanFirstname) return "Le prenom est obligatoire.";
+    if (!cleanLastname) return "Le nom est obligatoire.";
+    if (!cleanEmail) return "L'email est obligatoire.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return "Entrez une adresse email valide.";
+    }
+    if (!phone.trim()) return "Le telephone est obligatoire.";
+    if (!isValidPhoneNumber(phone)) return phoneHelperText;
+    if (!cleanAddress) return "L'adresse de livraison est obligatoire.";
+    if (!password.trim()) return "Le mot de passe est obligatoire.";
+    if (password.trim().length < 6) {
+      return "Le mot de passe doit contenir au moins 6 caracteres.";
+    }
+    if (!confirmPassword.trim()) {
+      return "Confirmez votre mot de passe.";
+    }
+    if (password !== confirmPassword) {
+      return "Les mots de passe ne correspondent pas.";
+    }
+
+    return "";
+  };
 
   const selectAvatarFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -80,9 +117,25 @@ function InscriptionClientContent() {
   const submitRegistration = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage("");
+    setFirstnameError("");
+    setLastnameError("");
+    setPhoneError("");
 
-    if (password !== confirmPassword) {
-      setMessage("Les mots de passe ne correspondent pas.");
+    const validationMessage = validateRequiredFields();
+    if (validationMessage) {
+      if (validationMessage === "Le prenom est obligatoire.") {
+        setFirstnameError(validationMessage);
+      }
+      if (validationMessage === "Le nom est obligatoire.") {
+        setLastnameError(validationMessage);
+      }
+      if (
+        validationMessage === "Le telephone est obligatoire." ||
+        validationMessage === phoneHelperText
+      ) {
+        setPhoneError(validationMessage);
+      }
+      setMessage(validationMessage);
       return;
     }
 
@@ -94,7 +147,7 @@ function InscriptionClientContent() {
           firstname: firstname.trim(),
           lastname: lastname.trim(),
           email: email.trim().toLowerCase(),
-          phone: phone.trim(),
+          phone: normalizePhoneNumber(phone),
           address: fullAddress,
           avatarUrl,
           password,
@@ -119,15 +172,21 @@ function InscriptionClientContent() {
           Creez votre compte BeautyPlace. La connexion client se fait sur une
           page separee.
         </p>
-        <form className="auth-form" onSubmit={submitRegistration}>
+        <form className="auth-form" onSubmit={submitRegistration} noValidate>
           <label>
             Prenom
             <input
               required
               autoComplete="given-name"
               value={firstname}
-              onChange={(event) => setFirstname(event.target.value)}
+              onChange={(event) => {
+                setFirstname(event.target.value);
+                setFirstnameError("");
+              }}
             />
+            {firstnameError && (
+              <span className="field-error">{firstnameError}</span>
+            )}
           </label>
           <label>
             Nom
@@ -135,8 +194,12 @@ function InscriptionClientContent() {
               required
               autoComplete="family-name"
               value={lastname}
-              onChange={(event) => setLastname(event.target.value)}
+              onChange={(event) => {
+                setLastname(event.target.value);
+                setLastnameError("");
+              }}
             />
+            {lastnameError && <span className="field-error">{lastnameError}</span>}
           </label>
           <label>
             Email
@@ -154,9 +217,17 @@ function InscriptionClientContent() {
               required
               type="tel"
               autoComplete="tel"
+              inputMode="tel"
+              placeholder="Ex : 06 12 34 56 78"
+              pattern="0[1-9][0-9]{8}"
+              title={phoneHelperText}
               value={phone}
-              onChange={(event) => setPhone(event.target.value)}
+              onChange={(event) => {
+                setPhone(event.target.value);
+                setPhoneError("");
+              }}
             />
+            {phoneError && <span className="field-error">{phoneError}</span>}
           </label>
           <label>
             Photo de profil

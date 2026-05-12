@@ -5,6 +5,7 @@ export interface Product {
   imgUrl: string;
   price?: number;
   category?: string;
+  stockCount?: number;
 }
 
 export interface ProductCard {
@@ -14,6 +15,7 @@ export interface ProductCard {
   imgUrl?: string;
   price?: number;
   category?: string;
+  stockCount?: number;
 }
 
 export type EditProductModalProps = {

@@ -13,6 +13,7 @@ import {
   WHO_AM_I,
 } from "../graphql/queries";
 import { Product, Role } from "../interface/types";
+import { defaultProductImage, getProductImage } from "../utils/productImages";
 
 type ProductWithArticles = Product & {
   articles?: { id: string }[];
@@ -24,36 +25,44 @@ const formatPrice = (price?: number) =>
     currency: "EUR",
   }).format(price ?? 0);
 
-const statusLabels: Record<string, string> = {
-  pending: "Panier en cours",
-  submitted: "Commande recue",
-  validated: "Validee par BeautyPlace",
-  ongoing: "En preparation",
-  shipped: "Colis envoye",
-  ended: "Colis livre / commande terminee",
-};
+const getOrderedArticles = (reservation: any) => {
+  if (reservation?.articles?.length) {
+    return reservation.articles.map((article: any) => ({
+      ...article,
+      product: {
+        ...article.product,
+        imgUrl: getProductImage(article.product),
+      },
+    }));
+  }
 
-const groupArticlesByProduct = (articles: any[] = []) =>
-  articles.reduce((groups: any[], article: any) => {
-    const product = article.product ?? {};
-    const productId = product.id || product.name || article.id;
-    const existingGroup = groups.find((group) => group.productId === productId);
+  if (!reservation?.articlesSnapshot) {
+    return [];
+  }
 
-    if (existingGroup) {
-      existingGroup.quantity += 1;
-      existingGroup.lineTotal += product.price ?? 0;
-      return groups;
+  try {
+    const snapshot = JSON.parse(reservation.articlesSnapshot);
+
+    if (!Array.isArray(snapshot)) {
+      return [];
     }
 
-    groups.push({
-      productId,
-      product,
-      quantity: 1,
-      lineTotal: product.price ?? 0,
-    });
-
-    return groups;
-  }, []);
+    return snapshot.map((item: any, index: number) => ({
+      id: item.articleId || `${item.productId || "snapshot"}-${index}`,
+      product: {
+        id: item.productId || item.articleId || `snapshot-${index}`,
+        name: item.name || "Produit BeautyPlace",
+        price: Number(item.price) || 0,
+        imgUrl: getProductImage({
+          imgUrl: item.imgUrl,
+          name: item.name,
+        }),
+      },
+    }));
+  } catch {
+    return [];
+  }
+};
 
 function ClientsContent() {
   const [message, setMessage] = useState("");
@@ -91,10 +100,11 @@ function ClientsContent() {
   const orderHistory = historyData?.getReservationsByUserId ?? [];
   const paidOrderHistory = orderHistory.filter((item: any) => {
     const reservation = item.reservation;
+    const orderedArticles = getOrderedArticles(reservation);
 
     return (
       reservation?.paymentStatus === "paid" &&
-      (reservation?.articles?.length ?? 0) > 0 &&
+      orderedArticles.length > 0 &&
       item.totalPrice > 0
     );
   });
@@ -275,6 +285,9 @@ function ClientsContent() {
           <Link className="client-mailbox-shortcut" href="/produits-likes">
             Favoris
           </Link>
+          <Link className="client-mailbox-shortcut" href="/historique-commandes">
+            Historique
+          </Link>
           <Link
             className="client-mailbox-shortcut"
             href="/messages-client"
@@ -319,7 +332,13 @@ function ClientsContent() {
         <div className="product-grid">
           {products.map((product) => (
             <article className="shop-card" key={product.id}>
-              <img src={product.imgUrl} alt={product.name} />
+              <img
+                src={getProductImage(product)}
+                alt={product.name}
+                onError={(event) => {
+                  event.currentTarget.src = defaultProductImage;
+                }}
+              />
               <div>
                 <h2>{product.name}</h2>
                 <p>{product.description}</p>
@@ -390,58 +409,13 @@ function ClientsContent() {
       <section className="client-space-grid">
         <article className="client-panel">
           <h2>Historique des commandes</h2>
-          {paidOrderHistory.length ? (
-            <div className="client-history-list">
-              {paidOrderHistory.map((item: any) => {
-                const productLines = groupArticlesByProduct(
-                  item.reservation.articles
-                );
-
-                return (
-                  <div className="client-history-card" key={item.reservation.id}>
-                    <div>
-                      <strong>
-                        Commande du{" "}
-                        {new Date(item.reservation.createdAt).toLocaleDateString(
-                          "fr-FR"
-                        )}
-                      </strong>
-                      <p>
-                        Statut :{" "}
-                        {statusLabels[item.reservation.status] ||
-                          item.reservation.status}
-                      </p>
-                      {item.reservation.status !== "pending" && (
-                        <Link href={`/suivi-commandes?commande=${item.reservation.id}`}>
-                          Voir le recu et le suivi
-                        </Link>
-                      )}
-                    </div>
-                    <ul>
-                      {productLines.map((line: any) => (
-                        <li key={line.productId}>
-                          <img
-                            src={line.product?.imgUrl}
-                            alt={line.product?.name}
-                          />
-                          <span>{line.product?.name}</span>
-                          <span className="order-product-quantity">
-                            x{line.quantity}
-                          </span>
-                          <strong>{formatPrice(line.lineTotal)}</strong>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="client-history-total">
-                      Total commande : <strong>{formatPrice(item.totalPrice)}</strong>
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p>Aucune commande dans votre historique pour le moment.</p>
-          )}
+          <p>
+            Retrouvez vos commandes payees, vos produits, les factures et les
+            suivis dans une page dediee.
+          </p>
+          <Link className="cart-link" href="/historique-commandes">
+            Ouvrir mon historique
+          </Link>
         </article>
 
         <article className="client-panel">
@@ -453,7 +427,13 @@ function ClientsContent() {
             <div className="liked-products-list">
               {likedProducts.map((product) => (
                 <div className="liked-product" key={product.id}>
-                  <img src={product.imgUrl} alt={product.name} />
+                  <img
+                    src={getProductImage(product)}
+                    alt={product.name}
+                    onError={(event) => {
+                      event.currentTarget.src = defaultProductImage;
+                    }}
+                  />
                   <div>
                     <strong>{product.name}</strong>
                     <p>{product.price ?? 0} EUR</p>

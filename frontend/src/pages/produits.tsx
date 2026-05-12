@@ -13,6 +13,7 @@ import {
   WHO_AM_I,
 } from "../graphql/queries";
 import { Product } from "../interface/types";
+import { defaultProductImage, getProductImage } from "../utils/productImages";
 
 type ProductWithArticles = Product & {
   articles?: { id: string }[];
@@ -95,11 +96,13 @@ function ProduitsContent() {
       : null;
   const category = selectedCategory ? categories[selectedCategory] : null;
   const displayedProducts = useMemo(() => {
+    const sellableProducts = products.filter((product) => Number(product.price) > 0);
+
     if (!category) {
-      return products;
+      return sellableProducts;
     }
 
-    return products.filter((product) => {
+    return sellableProducts.filter((product) => {
       if (product.category === selectedCategory) {
         return true;
       }
@@ -158,6 +161,11 @@ function ProduitsContent() {
 
   const addToCart = async (product: ProductWithArticles) => {
     if (pendingProductIds.current.has(product.id)) {
+      return;
+    }
+
+    if (Number(product.price) <= 0) {
+      setMessage("Ce produit ne peut pas etre commande car son prix est invalide.");
       return;
     }
 
@@ -277,7 +285,13 @@ function ProduitsContent() {
               >
                 <Heart aria-hidden="true" size={19} fill="currentColor" />
               </button>
-              <img src={product.imgUrl} alt={product.name} />
+              <img
+                src={getProductImage(product)}
+                alt={product.name}
+                onError={(event) => {
+                  event.currentTarget.src = defaultProductImage;
+                }}
+              />
               <div>
                 <h2>{product.name}</h2>
                 <p>{product.description}</p>

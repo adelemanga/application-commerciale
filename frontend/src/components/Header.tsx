@@ -27,6 +27,8 @@ const serviceLinks = [
   { href: "/produits?categorie=capillaires", label: "Cheveux" },
 ];
 
+const RESPONSIVE_MENU_BREAKPOINT = 1024;
+
 export default function Header() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -69,14 +71,17 @@ export default function Header() {
     dismissedAdminMessageCount !== adminUnreadClientMessageCount;
   const clientName = [user?.firstname, user?.lastname].filter(Boolean).join(" ");
   const clientLabel = clientName || user?.email || "Mon compte client";
+  const visibleMainLinks = isAdminLoggedIn
+    ? mainLinks.filter((link) => link.href !== "/contact")
+    : mainLinks;
   const profileImage =
     user?.avatarUrl ||
     "https://img.freepik.com/premium-vector/default-avatar-profile-icon-vector-social-media-user-image_543062-212.jpg";
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-      if (window.innerWidth > 768) {
+      setIsMobile(window.innerWidth <= RESPONSIVE_MENU_BREAKPOINT);
+      if (window.innerWidth > RESPONSIVE_MENU_BREAKPOINT) {
         setIsOpen(false); // Ferme le menu si on agrandit l'écran
       }
     };
@@ -128,7 +133,7 @@ export default function Header() {
             Beauty Place
           </Link>
           <div className="nav-links">
-            {mainLinks.map((link) => (
+            {visibleMainLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -184,14 +189,9 @@ export default function Header() {
               >
                 Messages
                 {adminUnreadClientMessageCount > 0 && (
-                  <>
-                    <span className="message-alert-badge">
-                      {adminUnreadClientMessageCount}
-                    </span>
-                    <span className="menu-message-popup">
-                      {adminUnreadClientMessageCount}
-                    </span>
-                  </>
+                  <span className="message-alert-badge">
+                    {adminUnreadClientMessageCount}
+                  </span>
                 )}
               </Link>
             )}
@@ -237,7 +237,7 @@ export default function Header() {
             <nav>
               <p className="drawer-title">Beauty Place</p>
               <ul>
-                {mainLinks.map((link) => (
+                {visibleMainLinks.map((link) => (
                   <li key={link.href}>
                     <Link href={link.href} onClick={() => setIsOpen(false)}>
                       {link.label}
@@ -316,14 +316,9 @@ export default function Header() {
 	                    >
 	                      Messages
 	                      {adminUnreadClientMessageCount > 0 && (
-	                        <>
-	                          <span className="message-alert-badge">
-	                            {adminUnreadClientMessageCount}
-	                          </span>
-	                          <span className="menu-message-popup drawer-menu-message-popup">
-	                            {adminUnreadClientMessageCount}
-	                          </span>
-	                        </>
+	                        <span className="message-alert-badge">
+	                          {adminUnreadClientMessageCount}
+	                        </span>
 	                      )}
 	                    </Link>
                   </li>

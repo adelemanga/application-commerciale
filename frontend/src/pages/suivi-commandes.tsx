@@ -1,11 +1,16 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import client from "../graphql/client";
-import { CONFIRM_RESERVATION_RECEIVED } from "../graphql/mutations";
+import {
+  CONFIRM_RESERVATION_RECEIVED,
+  HIDE_RESERVATION_FROM_CLIENT,
+} from "../graphql/mutations";
 import { GET_RESERVATIONS_BY_USER_ID, WHO_AM_I } from "../graphql/queries";
+import { defaultProductImage, getProductImage } from "../utils/productImages";
 
 const formatPrice = (price?: number) =>
   new Intl.NumberFormat("fr-FR", {
@@ -15,7 +20,10 @@ const formatPrice = (price?: number) =>
 
 const groupArticlesByProduct = (articles: any[] = []) =>
   articles.reduce((groups: any[], article: any) => {
-    const product = article.product ?? {};
+    const product = {
+      ...(article.product ?? {}),
+      imgUrl: getProductImage(article.product),
+    };
     const productKey = product.id ?? product.name ?? article.id;
     const existingGroup = groups.find((group) => group.productKey === productKey);
 
@@ -34,6 +42,45 @@ const groupArticlesByProduct = (articles: any[] = []) =>
 
     return groups;
   }, []);
+
+const getOrderedArticles = (reservation: any) => {
+  if (reservation?.articles?.length) {
+    return reservation.articles.map((article: any) => ({
+      ...article,
+      product: {
+        ...article.product,
+        imgUrl: getProductImage(article.product),
+      },
+    }));
+  }
+
+  if (!reservation?.articlesSnapshot) {
+    return [];
+  }
+
+  try {
+    const snapshot = JSON.parse(reservation.articlesSnapshot);
+
+    if (!Array.isArray(snapshot)) {
+      return [];
+    }
+
+    return snapshot.map((item: any, index: number) => ({
+      id: item.articleId || `${item.productId || "snapshot"}-${index}`,
+      product: {
+        id: item.productId || item.articleId || `snapshot-${index}`,
+        name: item.name || "Produit BeautyPlace",
+        price: Number(item.price) || 0,
+        imgUrl: getProductImage({
+          imgUrl: item.imgUrl,
+          name: item.name,
+        }),
+      },
+    }));
+  } catch {
+    return [];
+  }
+};
 
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString("fr-FR") : "Date non disponible";
@@ -56,6 +103,20 @@ const deliveryLabels: Record<string, string> = {
   home: "Livraison a domicile",
   relay: "Point relais",
   store: "Retrait magasin",
+};
+
+const getOrderDisplayType = (reservation: any) => {
+  if (reservation?.status === "pending") return "Panier non valide";
+  if (reservation?.paymentStatus === "paid" && reservation?.deliveryMethod === "home") {
+    return "Commande a livrer";
+  }
+  if (reservation?.paymentStatus === "paid" && reservation?.deliveryMethod === "relay") {
+    return "Commande en point relais";
+  }
+  if (reservation?.paymentStatus === "paid" && reservation?.deliveryMethod === "store") {
+    return "Commande a retirer";
+  }
+  return "Commande en cours";
 };
 
 const trackingSteps = [
@@ -250,6 +311,8 @@ function TrackingContent() {
   const router = useRouter();
   const selectedOrderId =
     typeof router.query.commande === "string" ? router.query.commande : "";
+  const [activeOrderId, setActiveOrderId] = useState(selectedOrderId);
+  const [clientNotice, setClientNotice] = useState("");
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
   });
@@ -260,25 +323,50 @@ function TrackingContent() {
     useMutation(CONFIRM_RESERVATION_RECEIVED, {
       refetchQueries: [{ query: GET_RESERVATIONS_BY_USER_ID }],
     });
+  const [hideReservationFromClient, { loading: deletingInvoice }] = useMutation(
+    HIDE_RESERVATION_FROM_CLIENT,
+    {
+      refetchQueries: [{ query: GET_RESERVATIONS_BY_USER_ID }],
+    }
+  );
 
   const isLoggedIn = Boolean(userData?.whoAmI?.isLoggedIn);
   const orders = data?.getReservationsByUserId ?? [];
-  const paidOrders = orders.filter((item: any) => {
+  const trackedOrders = orders.filter((item: any) => {
     const reservation = item.reservation;
 
-    return (
-      reservation?.paymentStatus === "paid" &&
-      (reservation?.articles?.length ?? 0) > 0 &&
-      item.totalPrice > 0
-    );
+    return reservation?.paymentStatus === "paid";
   });
+
+  useEffect(() => {
+    if (selectedOrderId) {
+      setActiveOrderId(selectedOrderId);
+    }
+  }, [selectedOrderId]);
+
+  useEffect(() => {
+    if (!trackedOrders.length) {
+      setActiveOrderId("");
+      return;
+    }
+
+    const activeOrderExists = trackedOrders.some(
+      (item: any) => String(item.reservation.id) === activeOrderId
+    );
+
+    if (!activeOrderId || !activeOrderExists) {
+      setActiveOrderId(String(trackedOrders[0].reservation.id));
+    }
+  }, [activeOrderId, trackedOrders]);
+
   const selectedOrder =
-    paidOrders.find(
-      (item: any) => String(item.reservation.id) === selectedOrderId
-    ) ?? paidOrders[0];
+    trackedOrders.find(
+      (item: any) => String(item.reservation.id) === activeOrderId
+    ) ?? trackedOrders[0];
   const reservation = selectedOrder?.reservation;
+  const orderedArticles = reservation ? getOrderedArticles(reservation) : [];
   const productLines = reservation
-    ? groupArticlesByProduct(reservation.articles)
+    ? groupArticlesByProduct(orderedArticles)
     : [];
   const trackingUrl = reservation
     ? getTrackingUrl(reservation.shippingCarrier, reservation.trackingNumber)
@@ -370,6 +458,33 @@ function TrackingContent() {
     });
   };
 
+  const deleteInvoiceFromClientSpace = async (targetReservationId?: string) => {
+    const reservationId = targetReservationId || reservation?.id;
+    if (!reservationId) return;
+
+    setClientNotice("");
+
+    try {
+      await hideReservationFromClient({
+        variables: {
+          reservationId,
+        },
+      });
+
+      const nextOrder = trackedOrders.find(
+        (item: any) => item.reservation.id !== reservationId
+      );
+
+      if (!reservation || reservationId === reservation.id) {
+        setActiveOrderId(nextOrder ? String(nextOrder.reservation.id) : "");
+      }
+
+      setClientNotice("Commande supprimee de votre espace client.");
+    } catch {
+      setClientNotice("Impossible de supprimer cette commande pour le moment.");
+    }
+  };
+
   return (
     <main className="shop-page tracking-page">
       <section className="shop-hero">
@@ -379,6 +494,11 @@ function TrackingContent() {
           Retrouvez le traitement de votre commande, le paiement, les produits et
           votre recu de facturation.
         </p>
+        {isLoggedIn && (
+          <p className="tracking-account-note">
+            Compte connecte : <strong>{userData?.whoAmI?.email}</strong>
+          </p>
+        )}
       </section>
 
       {(loading || loadingUser) && (
@@ -387,6 +507,7 @@ function TrackingContent() {
       {error && (
         <p className="shop-message">Impossible de charger le suivi de commande.</p>
       )}
+      {clientNotice && <p className="shop-message">{clientNotice}</p>}
 
       {!isLoggedIn ? (
         <section className="empty-cart-panel">
@@ -401,20 +522,34 @@ function TrackingContent() {
         <section className="tracking-layout">
           <aside className="tracking-list">
             <h2>Mes commandes</h2>
-            {paidOrders.map((item: any) => (
-              <Link
-                className={
-                  item.reservation.id === reservation.id
-                    ? "tracking-order active"
-                    : "tracking-order"
-                }
-                href={`/suivi-commandes?commande=${item.reservation.id}`}
-                key={item.reservation.id}
-              >
-                <span>Commande #{item.reservation.id}</span>
-                <small>{formatDate(item.reservation.createdAt)}</small>
-                <strong>{formatPrice(item.totalPrice)}</strong>
-              </Link>
+            {trackedOrders.map((item: any) => (
+              <div className="tracking-order-card" key={item.reservation.id}>
+                <button
+                  type="button"
+                  className={
+                    item.reservation.id === reservation.id
+                      ? "tracking-order active"
+                      : "tracking-order"
+                  }
+                  onClick={() => setActiveOrderId(String(item.reservation.id))}
+                >
+                  <span>Commande #{item.reservation.id}</span>
+                  <small>{formatDate(item.reservation.createdAt)}</small>
+                  <small>{getOrderDisplayType(item.reservation)}</small>
+                  <small>
+                    {statusLabels[item.reservation.status] || item.reservation.status}
+                  </small>
+                  <strong>{formatPrice(item.totalPrice)}</strong>
+                </button>
+                <button
+                  type="button"
+                  className="tracking-delete-button"
+                  disabled={deletingInvoice}
+                  onClick={() => deleteInvoiceFromClientSpace(item.reservation.id)}
+                >
+                  Supprimer cette facture
+                </button>
+              </div>
             ))}
           </aside>
 
@@ -431,6 +566,14 @@ function TrackingContent() {
                     Telecharger PDF
                   </a>
                 )}
+                <button
+                  type="button"
+                  className="danger-button"
+                  disabled={deletingInvoice}
+                  onClick={() => deleteInvoiceFromClientSpace()}
+                >
+                  {deletingInvoice ? "Suppression..." : "Supprimer la facture"}
+                </button>
                 <button type="button" onClick={() => window.print()}>
                   Imprimer
                 </button>
@@ -539,7 +682,13 @@ function TrackingContent() {
             <div className="receipt-lines">
               {productLines.map((line) => (
                 <div className="receipt-line" key={line.productKey}>
-                  <img src={line.product.imgUrl} alt={line.product.name} />
+                  <img
+                    src={getProductImage(line.product)}
+                    alt={line.product.name}
+                    onError={(event) => {
+                      event.currentTarget.src = defaultProductImage;
+                    }}
+                  />
                   <span>{line.product.name}</span>
                   <span className="order-product-quantity">x{line.quantity}</span>
                   <strong>{formatPrice(line.total)}</strong>
@@ -562,9 +711,9 @@ function TrackingContent() {
         </section>
       ) : (
         <section className="empty-cart-panel">
-          <h2>Aucune commande payee</h2>
+          <h2>Aucune commande disponible</h2>
           <p>
-            Les commandes apparaissent ici uniquement apres confirmation du
+            Vos commandes payees apparaitront ici apres confirmation du
             paiement.
           </p>
           <Link href="/produits">Voir les produits</Link>

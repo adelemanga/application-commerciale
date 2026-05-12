@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useState } from "react";
-import { REPLY_TO_ADVICE } from "../graphql/mutations";
+import { DELETE_AVIS, REPLY_TO_ADVICE } from "../graphql/mutations";
 import { GET_ALL_ADVICES, WHO_AM_I } from "../graphql/queries";
 import { Role } from "../interface/types";
 
@@ -38,6 +38,9 @@ function AdviceList() {
     fetchPolicy: "cache-and-network",
   });
   const [replyToAdvice, { loading: replying }] = useMutation(REPLY_TO_ADVICE, {
+    refetchQueries: [{ query: GET_ALL_ADVICES }],
+  });
+  const [deleteAdvice, { loading: deletingAdvice }] = useMutation(DELETE_AVIS, {
     refetchQueries: [{ query: GET_ALL_ADVICES }],
   });
   const isAdmin =
@@ -78,6 +81,21 @@ function AdviceList() {
       setReplyNotice("Reponse BeautyPlace enregistree sous l'avis.");
     } catch {
       setReplyNotice("Impossible d'enregistrer la reponse administrateur.");
+    }
+  };
+
+  const deleteAdviceAsAdmin = async (adviceId: string) => {
+    setReplyNotice("");
+
+    try {
+      await deleteAdvice({
+        variables: {
+          aviId: String(adviceId),
+        },
+      });
+      setReplyNotice("Avis supprime par l'administrateur.");
+    } catch {
+      setReplyNotice("Impossible de supprimer cet avis pour le moment.");
     }
   };
 
@@ -148,6 +166,14 @@ function AdviceList() {
                 </label>
                 <button type="submit" disabled={replying}>
                   {advice.adminReply ? "Modifier la reponse" : "Publier la reponse"}
+                </button>
+                <button
+                  type="button"
+                  className="advice-delete-button"
+                  disabled={deletingAdvice}
+                  onClick={() => deleteAdviceAsAdmin(advice.id)}
+                >
+                  Supprimer cet avis
                 </button>
               </form>
             )}

@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import client from "../graphql/client";
 import { GET_ALL_PRODUCTS, WHO_AM_I } from "../graphql/queries";
 import { Product } from "../interface/types";
+import { defaultProductImage, getProductImage } from "../utils/productImages";
 
 const formatPrice = (price?: number) =>
   new Intl.NumberFormat("fr-FR", {
@@ -96,7 +97,13 @@ function ProduitsLikesContent() {
               >
                 <Heart aria-hidden="true" size={19} fill="currentColor" />
               </button>
-              <img src={product.imgUrl} alt={product.name} />
+              <img
+                src={getProductImage(product)}
+                alt={product.name}
+                onError={(event) => {
+                  event.currentTarget.src = defaultProductImage;
+                }}
+              />
               <div>
                 <h2>{product.name}</h2>
                 <p>{product.description}</p>

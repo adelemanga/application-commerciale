@@ -14,6 +14,7 @@ import {
   GET_CURRENT_RESERVATION_BY_USER_ID,
   WHO_AM_I,
 } from "../graphql/queries";
+import { defaultProductImage, getProductImage } from "../utils/productImages";
 
 const formatPrice = (price?: number) =>
   new Intl.NumberFormat("fr-FR", {
@@ -57,7 +58,7 @@ function PanierContent() {
     [reservation?.articles]
   );
   const cartLines = useMemo(() => {
-    return articles.reduce((lines: any[], article: any) => {
+    return articles.filter((article: any) => Number(article.product?.price) > 0).reduce((lines: any[], article: any) => {
       const productId = article.product?.id || article.product?.name || article.id;
       const existingLine = lines.find((line) => line.productId === productId);
 
@@ -153,6 +154,19 @@ function PanierContent() {
     }
   };
 
+  const payableArticles = useMemo(
+    () => articles.filter((article: any) => Number(article.product?.price) > 0),
+    [articles]
+  );
+  const payableTotalPrice = useMemo(
+    () =>
+      payableArticles.reduce(
+        (total: number, article: any) => total + (Number(article.product?.price) || 0),
+        0
+      ),
+    [payableArticles]
+  );
+
   const addArticleToLine = async (line: any) => {
     if (updatingProductId) {
       return;
@@ -229,7 +243,13 @@ function PanierContent() {
           <div className="cart-lines">
             {cartLines.map((line: any) => (
               <article className="cart-line" key={line.productId}>
-                <img src={line.product.imgUrl} alt={line.product.name} />
+                <img
+                  src={getProductImage(line.product)}
+                  alt={line.product.name}
+                  onError={(event) => {
+                    event.currentTarget.src = defaultProductImage;
+                  }}
+                />
                 <div>
                   <h2>{line.product.name}</h2>
                   <div className="cart-line-meta">
@@ -274,7 +294,12 @@ function PanierContent() {
           </div>
           <aside className="cart-total">
             <span>Total</span>
-            <strong>{formatPrice(totalPrice)}</strong>
+            <strong>{formatPrice(payableTotalPrice || totalPrice)}</strong>
+            {!payableArticles.length && (
+              <p className="shop-message">
+                Une commande a zero euro ne peut pas exister.
+              </p>
+            )}
             <div className="payment-box">
               <span>Choisir livraison ou retrait</span>
               <p>
@@ -284,7 +309,12 @@ function PanierContent() {
               </p>
             </div>
             <div className="cart-payment-actions">
-              <Link className="cart-submit-button" href="/paiement-carte">
+              <Link
+                className={
+                  payableArticles.length ? "cart-submit-button" : "cart-submit-button disabled-link"
+                }
+                href={payableArticles.length ? "/paiement-carte" : "/produits"}
+              >
                 Choisir livraison et payer
               </Link>
             </div>
