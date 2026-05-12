@@ -1,7 +1,7 @@
 import { ApolloProvider, useMutation, useQuery } from "@apollo/client";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -16,12 +16,38 @@ import {
   GET_RESERVATIONS_BY_USER_ID,
   WHO_AM_I,
 } from "../graphql/queries";
+import {
+  isValidPhoneNumber,
+  normalizePhoneNumber,
+  phoneHelperText,
+} from "../utils/phone";
 
 const formatPrice = (price?: number) =>
   new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
   }).format(price ?? 0);
+
+const relayCarrierOptions = [
+  {
+    id: "mondial-relay",
+    label: "Mondial Relay",
+    description: "Recherche officielle disponible",
+    available: true,
+  },
+  {
+    id: "colissimo",
+    label: "Colissimo / La Poste",
+    description: "API a brancher avant production",
+    available: false,
+  },
+  {
+    id: "chronopost",
+    label: "Chronopost Pickup",
+    description: "API a brancher avant production",
+    available: false,
+  },
+];
 
 function PaiementCarteContent() {
   const router = useRouter();
@@ -31,11 +57,17 @@ function PaiementCarteContent() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState("home");
+  const [relayCarrier, setRelayCarrier] = useState("mondial-relay");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
   const [relayName, setRelayName] = useState("");
   const [relayAddress, setRelayAddress] = useState("");
   const [addressError, setAddressError] = useState("");
+  const [firstnameError, setFirstnameError] = useState("");
+  const [lastnameError, setLastnameError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [relayNameError, setRelayNameError] = useState("");
+  const [relayAddressError, setRelayAddressError] = useState("");
   const prefilledRef = useRef(false);
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
@@ -58,7 +90,50 @@ function PaiementCarteContent() {
   const reservation = data?.getCurrentReservationByUserId?.reservation;
   const totalPrice = data?.getCurrentReservationByUserId?.totalPrice ?? 0;
   const articles = reservation?.articles ?? [];
+  const payableArticles = useMemo(
+    () => articles.filter((article: any) => Number(article.product?.price) > 0),
+    [articles]
+  );
+  const payableTotalPrice = useMemo(
+    () =>
+      payableArticles.reduce(
+        (total: number, article: any) => total + (Number(article.product?.price) || 0),
+        0
+      ),
+    [payableArticles]
+  );
   const isLoggedIn = userData?.whoAmI?.isLoggedIn;
+
+  const validateCheckoutFields = (fields: {
+    firstname: string;
+    lastname: string;
+    phone: string;
+    address: string;
+    relayName: string;
+    relayAddress: string;
+  }) => {
+    if (!fields.firstname) return "Le prenom est obligatoire.";
+    if (!fields.lastname) return "Le nom est obligatoire.";
+    if (!fields.phone) return "Le telephone est obligatoire.";
+    if (!isValidPhoneNumber(fields.phone)) return phoneHelperText;
+
+    if (deliveryMethod === "home" && !fields.address) {
+      return "Adresse de livraison obligatoire avant de continuer vers le paiement.";
+    }
+
+    if (deliveryMethod === "store" && !pickupDate) {
+      return "Choisissez une date de retrait en magasin.";
+    }
+
+    if (deliveryMethod === "relay") {
+      if (!fields.relayName) return "Le nom du point relais est obligatoire.";
+      if (!fields.relayAddress) {
+        return "L'adresse du point relais est obligatoire.";
+      }
+    }
+
+    return "";
+  };
 
   useEffect(() => {
     if (!userData?.whoAmI || prefilledRef.current) return;
@@ -107,39 +182,56 @@ function PaiementCarteContent() {
     event.preventDefault();
     setMessage("");
     setAddressError("");
+    setFirstnameError("");
+    setLastnameError("");
+    setPhoneError("");
+    setRelayNameError("");
+    setRelayAddressError("");
 
     const cleanFirstname = firstname.trim();
     const cleanLastname = lastname.trim();
-    const cleanPhone = customerPhone.trim();
+    const cleanPhone = normalizePhoneNumber(customerPhone);
     const cleanAddress = customerAddress.trim();
     const cleanRelayName = relayName.trim();
     const cleanRelayAddress = relayAddress.trim();
 
-    if (!reservation?.id || !articles.length) {
+    if (!reservation?.id || !payableArticles.length || payableTotalPrice <= 0) {
       setMessage("Votre panier est vide.");
       return;
     }
 
-    if (!cleanFirstname || !cleanLastname || !cleanPhone) {
-      setMessage("Remplissez votre nom, prenom et telephone.");
-      return;
-    }
+    const validationMessage = validateCheckoutFields({
+      firstname: cleanFirstname,
+      lastname: cleanLastname,
+      phone: cleanPhone,
+      address: cleanAddress,
+      relayName: cleanRelayName,
+      relayAddress: cleanRelayAddress,
+    });
 
-    if (deliveryMethod === "home" && !cleanAddress) {
-      const errorMessage =
-        "Adresse de livraison obligatoire avant de continuer vers le paiement.";
-      setAddressError(errorMessage);
-      setMessage(errorMessage);
-      return;
-    }
-
-    if (deliveryMethod === "store" && !pickupDate) {
-      setMessage("Choisissez une date de retrait en magasin.");
-      return;
-    }
-
-    if (deliveryMethod === "relay" && (!cleanRelayName || !cleanRelayAddress)) {
-      setMessage("Renseignez le nom et l'adresse du point relais.");
+    if (validationMessage) {
+      if (validationMessage === "Le prenom est obligatoire.") {
+        setFirstnameError(validationMessage);
+      }
+      if (validationMessage === "Le nom est obligatoire.") {
+        setLastnameError(validationMessage);
+      }
+      if (
+        validationMessage === "Le telephone est obligatoire." ||
+        validationMessage === phoneHelperText
+      ) {
+        setPhoneError(validationMessage);
+      }
+      if (deliveryMethod === "home" && !cleanAddress) {
+        setAddressError(validationMessage);
+      }
+      if (validationMessage === "Le nom du point relais est obligatoire.") {
+        setRelayNameError(validationMessage);
+      }
+      if (validationMessage === "L'adresse du point relais est obligatoire.") {
+        setRelayAddressError(validationMessage);
+      }
+      setMessage(validationMessage);
       return;
     }
 
@@ -208,7 +300,7 @@ function PaiementCarteContent() {
         </section>
       ) : articles.length ? (
         <section className="checkout-layout">
-          <form className="checkout-form-card" onSubmit={openStripeCheckout}>
+          <form className="checkout-form-card" onSubmit={openStripeCheckout} noValidate>
             <label>
               Prenom
               <input
@@ -216,8 +308,14 @@ function PaiementCarteContent() {
                 name="firstname"
                 placeholder="Votre prenom"
                 value={firstname}
-                onChange={(event) => setFirstname(event.target.value)}
+                onChange={(event) => {
+                  setFirstname(event.target.value);
+                  setFirstnameError("");
+                }}
               />
+              {firstnameError && (
+                <span className="field-error">{firstnameError}</span>
+              )}
             </label>
             <label>
               Nom
@@ -226,8 +324,12 @@ function PaiementCarteContent() {
                 name="lastname"
                 placeholder="Votre nom"
                 value={lastname}
-                onChange={(event) => setLastname(event.target.value)}
+                onChange={(event) => {
+                  setLastname(event.target.value);
+                  setLastnameError("");
+                }}
               />
+              {lastnameError && <span className="field-error">{lastnameError}</span>}
             </label>
             <label>
               Telephone
@@ -235,10 +337,18 @@ function PaiementCarteContent() {
                 required
                 name="phone"
                 type="tel"
-                placeholder="Votre numero"
+                autoComplete="tel"
+                inputMode="tel"
+                placeholder="Ex : 06 12 34 56 78"
+                pattern="0[1-9][0-9]{8}"
+                title={phoneHelperText}
                 value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
+                onChange={(event) => {
+                  setCustomerPhone(event.target.value);
+                  setPhoneError("");
+                }}
               />
+              {phoneError && <span className="field-error">{phoneError}</span>}
             </label>
             <div className="checkout-wide-field delivery-choice-group">
               <span>Mode de reception</span>
@@ -259,6 +369,7 @@ function PaiementCarteContent() {
                   className={deliveryMethod === "relay" ? "active" : ""}
                   onClick={() => {
                     setDeliveryMethod("relay");
+                    setRelayCarrier("mondial-relay");
                     setMessage("");
                     setAddressError("");
                   }}
@@ -299,12 +410,44 @@ function PaiementCarteContent() {
             {deliveryMethod === "relay" && (
               <>
                 <div className="checkout-wide-field">
-                  <MondialRelayPicker
-                    onSelect={(name, address) => {
-                      setRelayName(name);
-                      setRelayAddress(address);
-                    }}
-                  />
+                  <span className="checkout-field-title">
+                    Transporteur point relais
+                  </span>
+                  <div className="relay-carrier-options">
+                    {relayCarrierOptions.map((carrier) => (
+                      <button
+                        type="button"
+                        key={carrier.id}
+                        className={relayCarrier === carrier.id ? "active" : ""}
+                        disabled={!carrier.available}
+                        onClick={() => {
+                          setRelayCarrier(carrier.id);
+                          setRelayName("");
+                          setRelayAddress("");
+                          setRelayNameError("");
+                          setRelayAddressError("");
+                        }}
+                      >
+                        <strong>{carrier.label}</strong>
+                        <small>{carrier.description}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="checkout-wide-field">
+                  {relayCarrier === "mondial-relay" ? (
+                    <MondialRelayPicker
+                      onSelect={(name, address) => {
+                        setRelayName(`Mondial Relay - ${name}`);
+                        setRelayAddress(address);
+                      }}
+                    />
+                  ) : (
+                    <p className="payment-warning">
+                      Ce transporteur sera disponible quand ses identifiants API
+                      seront configures.
+                    </p>
+                  )}
                 </div>
                 <label>
                   Nom du point relais
@@ -313,8 +456,14 @@ function PaiementCarteContent() {
                     name="relayName"
                     placeholder="Ex: Relais Beauty Centre"
                     value={relayName}
-                    onChange={(event) => setRelayName(event.target.value)}
+                    onChange={(event) => {
+                      setRelayName(event.target.value);
+                      setRelayNameError("");
+                    }}
                   />
+                  {relayNameError && (
+                    <span className="field-error">{relayNameError}</span>
+                  )}
                 </label>
                 <div className="relay-address-field">
                   <AddressAutocomplete
@@ -322,9 +471,15 @@ function PaiementCarteContent() {
                     label="Adresse du point relais"
                     name="relayAddress"
                     value={relayAddress}
-                    onChange={setRelayAddress}
+                    onChange={(value) => {
+                      setRelayAddress(value);
+                      setRelayAddressError("");
+                    }}
                     placeholder="Ville, code postal ou adresse du relais"
                   />
+                  {relayAddressError && (
+                    <span className="field-error">{relayAddressError}</span>
+                  )}
                 </div>
               </>
             )}
@@ -362,14 +517,14 @@ function PaiementCarteContent() {
             >
               {redirectingToStripe
                 ? "Redirection Stripe..."
-                : `Continuer vers Stripe - ${formatPrice(totalPrice)}`}
+                : `Continuer vers Stripe - ${formatPrice(payableTotalPrice || totalPrice)}`}
             </button>
           </form>
 
           <aside className="cart-total">
             <span>Total a payer</span>
-            <strong>{formatPrice(totalPrice)}</strong>
-            <p>{articles.length} produit(s) dans votre panier.</p>
+            <strong>{formatPrice(payableTotalPrice || totalPrice)}</strong>
+            <p>{payableArticles.length} produit(s) dans votre panier.</p>
             <Link href="/panier">Retour au panier</Link>
           </aside>
         </section>

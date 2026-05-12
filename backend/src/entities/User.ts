@@ -62,6 +62,18 @@ export class User extends BaseEntity {
   @Column()
   hashedPassword: string;
 
+  @Column({ type: "text", nullable: true })
+  passwordResetToken?: string | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  passwordResetTokenExpiresAt?: Date | null;
+
+  @Column({ type: "text", nullable: true })
+  passwordResetCode?: string | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  passwordResetCodeExpiresAt?: Date | null;
+
   // Only Admin
   @Authorized(Role.Admin)
   @Field(() => Role)

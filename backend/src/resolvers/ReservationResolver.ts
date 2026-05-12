@@ -6,6 +6,7 @@ import {
 } from "../entities/Reservation";
 import {
   Arg,
+  Authorized,
   Ctx,
   Field,
   InputType,
@@ -20,9 +21,13 @@ import { Article } from "../entities/Article";
 import {
   sendOrderEmails,
   sendOrderReceivedEmail,
-  sendTrackingUpdateEmail,
+  sendOrderStatusUpdateEmail,
 } from "../services/orderEmail";
+import { isValidPhoneNumber, normalizePhoneNumber } from "../utils/phone";
 import axios from "axios";
+import { ClientMessage } from "../entities/ClientMessage";
+import { Role } from "../entities/User";
+import { Product } from "../entities/Product";
 
 // custom object created to send the totalPrice along with the reservation data
 @ObjectType()
@@ -39,6 +44,223 @@ class StripeCheckoutSession {
   @Field()
   url: string;
 }
+
+const statusUpdateLabels: Record<ReservationStatus, string> = {
+  [ReservationStatus.Pending]: "Panier en cours",
+  [ReservationStatus.Submitted]: "Commande recue",
+  [ReservationStatus.Validated]: "Commande validee",
+  [ReservationStatus.Ongoing]: "Commande en preparation",
+  [ReservationStatus.Shipped]: "Colis envoye",
+  [ReservationStatus.Ended]: "Commande terminee",
+};
+
+const createArticlesSnapshot = (articles: Article[] = []) =>
+  JSON.stringify(
+    articles.map((article) => ({
+      articleId: article.id,
+      productId: article.product?.id,
+      name: article.product?.name || "Produit BeautyPlace",
+      price: article.product?.price || 0,
+      imgUrl: article.product?.imgUrl || "",
+    }))
+  );
+
+const productImageFallbacks: Record<string, string> = {
+  "Serum eclat visage":
+    "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80",
+  "Creme hydratante douceur":
+    "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?auto=format&fit=crop&w=900&q=80",
+  "Palette maquillage rose":
+    "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=900&q=80",
+  "Huile capillaire sublime":
+    "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=900&q=80",
+  "Kit manucure premium":
+    "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=900&q=80",
+  "Masque visage cocooning":
+    "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=900&q=80",
+};
+
+const calculateReservationTotal = (reservation: Reservation) => {
+  const articlesTotal = calculateTotal(reservation.articles ?? []);
+
+  if (articlesTotal > 0 || !reservation.articlesSnapshot) {
+    return articlesTotal;
+  }
+
+  try {
+    const snapshot = JSON.parse(reservation.articlesSnapshot);
+
+    if (!Array.isArray(snapshot)) {
+      return 0;
+    }
+
+    return snapshot.reduce(
+      (sum: number, item: { price?: number }) => sum + (Number(item.price) || 0),
+      0
+    );
+  } catch {
+    return 0;
+  }
+};
+
+const hasPaidOrderValue = (reservation: Reservation) =>
+  reservation.articles?.some((article) => Number(article.product?.price) > 0) ||
+  calculateReservationTotal(reservation) > 0;
+
+const enrichSnapshotWithLocalProducts = async (reservation: Reservation) => {
+  if (!reservation.articlesSnapshot) {
+    return reservation;
+  }
+
+  try {
+    const snapshot = JSON.parse(reservation.articlesSnapshot);
+
+    if (!Array.isArray(snapshot)) {
+      return reservation;
+    }
+
+    let hasChanged = false;
+    const enrichedSnapshot = await Promise.all(
+      snapshot.map(async (item: any) => {
+        if (item.imgUrl && item.price) {
+          return item;
+        }
+
+        const product = item.productId
+          ? await Product.findOne({ where: { id: item.productId } })
+          : item.name
+          ? await Product.findOne({ where: { name: item.name } })
+          : null;
+
+        if (!product) {
+          const fallbackImage = item.name
+            ? productImageFallbacks[item.name]
+            : undefined;
+
+          if (!fallbackImage || item.imgUrl) {
+            return item;
+          }
+
+          hasChanged = true;
+          return {
+            ...item,
+            imgUrl: fallbackImage,
+          };
+        }
+
+        hasChanged = true;
+        return {
+          ...item,
+          productId: item.productId || product.id,
+          name: item.name || product.name,
+          price: item.price || product.price,
+          imgUrl: item.imgUrl || product.imgUrl,
+        };
+      })
+    );
+
+    if (hasChanged) {
+      reservation.articlesSnapshot = JSON.stringify(enrichedSnapshot);
+      await reservation.save();
+    }
+  } catch {
+    return reservation;
+  }
+
+  return reservation;
+};
+
+const backfillStripeArticlesSnapshot = async (reservation: Reservation) => {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+  await enrichSnapshotWithLocalProducts(reservation);
+
+  if (
+    !stripeSecretKey ||
+    reservation.articles?.length ||
+    reservation.articlesSnapshot ||
+    !reservation.stripeSessionId
+  ) {
+    return reservation;
+  }
+
+  try {
+    const response = await axios.get(
+      `https://api.stripe.com/v1/checkout/sessions/${reservation.stripeSessionId}/line_items`,
+      {
+        params: {
+          expand: ["data.price.product"],
+        },
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+        },
+      }
+    );
+
+    const snapshot = (response.data?.data ?? []).flatMap((lineItem: any) => {
+      const quantity = Number(lineItem.quantity) || 1;
+      const product = lineItem.price?.product ?? {};
+      const unitAmount = Number(lineItem.price?.unit_amount) || 0;
+
+      return Array.from({ length: quantity }, (_unused, index) => ({
+        articleId: `stripe-${lineItem.id}-${index}`,
+        productId:
+          typeof product === "string" ? product : product.id || lineItem.id,
+        name:
+          lineItem.description ||
+          (typeof product === "string" ? undefined : product.name) ||
+          "Produit BeautyPlace",
+        price: unitAmount / 100,
+        imgUrl:
+          typeof product === "string"
+            ? ""
+            : product.images?.[0] || "",
+      }));
+    });
+
+    if (snapshot.length) {
+      reservation.articlesSnapshot = JSON.stringify(snapshot);
+      await reservation.save();
+      await enrichSnapshotWithLocalProducts(reservation);
+    }
+  } catch (error) {
+    console.warn(
+      `Impossible de recuperer les produits Stripe pour la reservation ${reservation.id}.`,
+      error
+    );
+  }
+
+  return reservation;
+};
+
+const backfillStripeSnapshots = async (reservations: Reservation[]) => {
+  await Promise.all(reservations.map(backfillStripeArticlesSnapshot));
+  return reservations;
+};
+
+const normalizeEndedPaidReservations = async (reservations: Reservation[]) => {
+  await Promise.all(
+    reservations.map(async (reservation) => {
+      const total = calculateReservationTotal(reservation);
+
+      if (
+        reservation.status === ReservationStatus.Ended &&
+        reservation.paymentStatus !== PaymentStatus.Paid &&
+        total > 0
+      ) {
+        reservation.paymentStatus = PaymentStatus.Paid;
+        if (!reservation.articlesSnapshot) {
+          reservation.articlesSnapshot = createArticlesSnapshot(
+            reservation.articles ?? []
+          );
+        }
+        await reservation.save();
+      }
+    })
+  );
+
+  return reservations;
+};
 
 @InputType()
 class NewReservationInput {
@@ -58,12 +280,41 @@ export class ReservationResolver {
   async getAllReservations() {
     const reservations = await Reservation.find({
       relations: ["user", "articles", "articles.product"],
+      order: {
+        createdAt: "DESC",
+      },
     });
+
+    await backfillStripeSnapshots(reservations);
+
     return reservations.filter(
       (reservation) =>
         !reservation.archivedByAdmin &&
-        reservation.articles.length > 0 &&
-        calculateTotal(reservation.articles) > 0
+        !reservation.removedFromAdminHistory &&
+        reservation.paymentStatus === PaymentStatus.Paid &&
+        reservation.status !== ReservationStatus.Pending &&
+        calculateReservationTotal(reservation) > 0
+    );
+  }
+
+  @Query(() => [Reservation])
+  async getTreatedReservationsAdmin() {
+    const reservations = await Reservation.find({
+      relations: ["user", "articles", "articles.product"],
+      order: {
+        createdAt: "DESC",
+      },
+    });
+
+    await backfillStripeSnapshots(reservations);
+    await normalizeEndedPaidReservations(reservations);
+
+    return reservations.filter(
+      (reservation) =>
+        calculateReservationTotal(reservation) > 0 &&
+        !reservation.removedFromAdminHistory &&
+        (reservation.archivedByAdmin ||
+          reservation.status === ReservationStatus.Ended)
     );
   }
 
@@ -101,7 +352,7 @@ export class ReservationResolver {
         relations: ["user", "articles", "articles.product"],
       });
       if (reservation) {
-        const totalPrice = calculateTotal(reservation.articles);
+        const totalPrice = calculateReservationTotal(reservation);
         return { reservation, totalPrice };
       } else {
         return null;
@@ -114,18 +365,43 @@ export class ReservationResolver {
   @Query(() => [ReservationWithTotal])
   async getReservationsByUserId(@Ctx() context: Context) {
     if (context.id !== undefined) {
+      const normalizedEmail = context.email?.trim().toLowerCase();
+      const where = [
+        { user: { id: context.id } },
+        ...(normalizedEmail
+          ? [{ user: { email: normalizedEmail } }]
+          : []),
+      ];
       const reservations = await Reservation.find({
-        where: { user: { id: context.id } },
+        where,
         relations: ["user", "articles", "articles.product"],
         order: {
           createdAt: "DESC",
         },
       });
 
-      return reservations.map((reservation) => {
-        const totalPrice = calculateTotal(reservation.articles);
-        return { reservation, totalPrice };
+      const uniqueReservations = new Map<string, Reservation>();
+
+      reservations.forEach((reservation) => {
+        uniqueReservations.set(String(reservation.id), reservation);
       });
+
+      return Array.from(uniqueReservations.values())
+        .filter((reservation) => {
+          if (reservation.hiddenByClient) {
+            return false;
+          }
+
+          const totalPrice = calculateReservationTotal(reservation);
+          const hasProducts =
+            reservation.articles.length > 0 || Boolean(reservation.articlesSnapshot);
+
+          return reservation.paymentStatus === PaymentStatus.Paid && hasProducts && totalPrice > 0;
+        })
+        .map((reservation) => {
+          const totalPrice = calculateReservationTotal(reservation);
+          return { reservation, totalPrice };
+        });
     } else {
       return [];
     }
@@ -153,9 +429,14 @@ export class ReservationResolver {
     if (!reservation) {
       const article = await Article.findOne({
         where: { id: reservationData.articleId },
+        relations: ["product"],
       });
       if (!article) {
         throw new Error("Article not found");
+      }
+
+      if (Number(article.product?.price) <= 0) {
+        throw new Error("Une commande a zero euro ne peut pas exister.");
       }
 
       reservation = Reservation.create({
@@ -170,9 +451,14 @@ export class ReservationResolver {
       // If a pending reservation exists, add the article to the reservation
       const articleToAdd = await Article.findOne({
         where: { id: reservationData.articleId },
+        relations: ["product"],
       });
       if (!articleToAdd) {
         throw new Error("Article not found");
+      }
+
+      if (Number(articleToAdd.product?.price) <= 0) {
+        throw new Error("Une commande a zero euro ne peut pas exister.");
       }
 
       // Check if article was already in the reservation
@@ -211,19 +497,31 @@ export class ReservationResolver {
 
     const cleanPickupDate = pickupDate?.trim() || undefined;
     const cleanPickupTime = pickupTime?.trim() || undefined;
+    const cleanCustomerPhone = normalizePhoneNumber(customerPhone || "");
 
-    if (paymentMethod !== "card" && !cleanPickupDate) {
-      throw new Error("Choisissez une date de retrait sur place.");
+    if (!isValidPhoneNumber(cleanCustomerPhone)) {
+      throw new Error("Numero de telephone invalide.");
+    }
+
+    if (
+      paymentMethod !== "card" ||
+      reservation.paymentMethod !== "card" ||
+      reservation.paymentStatus !== PaymentStatus.Paid ||
+      !reservation.stripeSessionId
+    ) {
+      throw new Error(
+        "La commande doit etre payee par Stripe avant d'etre envoyee a l'administrateur."
+      );
     }
 
     reservation.status = ReservationStatus.Submitted;
-    reservation.customerPhone = customerPhone;
+    reservation.customerPhone = cleanCustomerPhone;
     reservation.customerAddress = customerAddress;
     reservation.paymentMethod = paymentMethod;
     reservation.pickupDate = paymentMethod !== "card" ? cleanPickupDate : undefined;
     reservation.pickupTime = paymentMethod !== "card" ? cleanPickupTime : undefined;
-    reservation.paymentStatus =
-      paymentMethod === "card" ? PaymentStatus.Paid : PaymentStatus.Pending;
+    reservation.articlesSnapshot = createArticlesSnapshot(reservation.articles);
+    reservation.paymentStatus = PaymentStatus.Paid;
     await reservation.save();
 
     reservation = await Reservation.findOneOrFail({
@@ -277,8 +575,12 @@ export class ReservationResolver {
       throw new Error("Reservation not found");
     }
 
+    if (!hasPaidOrderValue(reservation)) {
+      throw new Error("Une commande a zero euro ne peut pas etre payee.");
+    }
+
     const cleanDeliveryMethod = deliveryMethod?.trim() || "home";
-    const cleanCustomerPhone = customerPhone?.trim();
+    const cleanCustomerPhone = normalizePhoneNumber(customerPhone || "");
     const cleanCustomerAddress = customerAddress?.trim();
     const cleanPickupDate = pickupDate?.trim() || undefined;
     const cleanPickupTime = pickupTime?.trim() || undefined;
@@ -289,8 +591,8 @@ export class ReservationResolver {
       throw new Error("Invalid delivery method");
     }
 
-    if (!cleanCustomerPhone) {
-      throw new Error("Renseignez votre numero de telephone.");
+    if (!cleanCustomerPhone || !isValidPhoneNumber(cleanCustomerPhone)) {
+      throw new Error("Renseignez un numero de telephone valide.");
     }
 
     if (cleanDeliveryMethod === "home" && !cleanCustomerAddress) {
@@ -362,6 +664,7 @@ export class ReservationResolver {
     reservation.paymentMethod = "card";
     reservation.paymentStatus = PaymentStatus.Pending;
     reservation.stripeSessionId = response.data.id;
+    reservation.articlesSnapshot = createArticlesSnapshot(reservation.articles);
     reservation.deliveryMethod = cleanDeliveryMethod;
     reservation.pickupDate =
       cleanDeliveryMethod === "store" ? cleanPickupDate : undefined;
@@ -416,19 +719,30 @@ export class ReservationResolver {
       throw new Error("Payment not completed");
     }
 
+    if (!hasPaidOrderValue(reservation)) {
+      throw new Error("Une commande a zero euro ne peut pas etre confirmee.");
+    }
+
     reservation.status = ReservationStatus.Submitted;
     reservation.paymentMethod = "card";
     reservation.paymentStatus = PaymentStatus.Paid;
     reservation.stripeSessionId = sessionId;
+    if (!reservation.articlesSnapshot) {
+      reservation.articlesSnapshot = createArticlesSnapshot(reservation.articles);
+    }
     await reservation.save();
 
-    try {
-      await sendOrderEmails(reservation);
-    } catch (error) {
-      console.warn(
-        "Commande payee, mais email non envoye. Verifiez la configuration Gmail.",
-        error
-      );
+    if (!reservation.confirmationEmailSentAt) {
+      try {
+        await sendOrderEmails(reservation);
+        reservation.confirmationEmailSentAt = new Date();
+        await reservation.save();
+      } catch (error) {
+        console.warn(
+          "Commande payee, mais email non envoye. Verifiez la configuration Gmail.",
+          error
+        );
+      }
     }
 
     return reservation;
@@ -494,17 +808,51 @@ export class ReservationResolver {
       );
     }
 
+    const finalPaymentStatus =
+      nextStatus === ReservationStatus.Ended
+        ? PaymentStatus.Paid
+        : (paymentStatus as PaymentStatus);
+    const previousStatus = reservation.status;
+    const previousPaymentStatus = reservation.paymentStatus;
+    const previousCarrier = reservation.shippingCarrier;
+    const previousTrackingNumber = reservation.trackingNumber;
+
     reservation.status = nextStatus;
-    reservation.paymentStatus = paymentStatus as PaymentStatus;
+    reservation.paymentStatus = finalPaymentStatus;
     reservation.shippingCarrier = isOnlinePaid ? shippingCarrier?.trim() || null : null;
     reservation.trackingNumber = isOnlinePaid ? trackingNumber?.trim() || null : null;
+    if (!reservation.articlesSnapshot) {
+      reservation.articlesSnapshot = createArticlesSnapshot(reservation.articles);
+    }
     await reservation.save();
 
-    if (reservation.status === ReservationStatus.Shipped && reservation.trackingNumber) {
+    const hasOrderUpdate =
+      previousStatus !== reservation.status ||
+      previousPaymentStatus !== reservation.paymentStatus ||
+      previousCarrier !== reservation.shippingCarrier ||
+      previousTrackingNumber !== reservation.trackingNumber;
+
+    if (hasOrderUpdate && reservation.user) {
+      const statusLabel =
+        statusUpdateLabels[reservation.status] || reservation.status;
+      const trackingLine = reservation.trackingNumber
+        ? ` Transporteur : ${reservation.shippingCarrier || "a definir"}, suivi : ${
+            reservation.trackingNumber
+          }.`
+        : "";
+      const platformMessage = ClientMessage.create({
+        client: reservation.user,
+        senderRole: "Admin",
+        message: `Avancement de votre commande #${reservation.id} : ${statusLabel}.${trackingLine}`,
+        readAt: undefined,
+      });
+
+      await platformMessage.save();
+
       try {
-        await sendTrackingUpdateEmail(reservation);
+        await sendOrderStatusUpdateEmail(reservation);
       } catch (error) {
-        console.error("Erreur email suivi colis:", error);
+        console.error("Erreur email avancement commande:", error);
       }
     }
 
@@ -573,6 +921,54 @@ export class ReservationResolver {
   }
 
   @Mutation(() => Boolean)
+  async hideReservationFromClient(
+    @Ctx() context: Context,
+    @Arg("reservationId", () => ID) reservationId: string
+  ) {
+    if (!context.id) {
+      throw new Error("User not authenticated");
+    }
+
+    const reservation = await Reservation.findOne({
+      where: {
+        id: reservationId,
+        user: { id: context.id },
+      },
+      relations: ["articles", "articles.product"],
+    });
+
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    reservation.hiddenByClient = true;
+    await reservation.save();
+
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  @Authorized(Role.Admin)
+  async deleteReservationAdmin(
+    @Arg("reservationId", () => ID) reservationId: string
+  ) {
+    const reservation = await Reservation.findOne({
+      where: { id: reservationId },
+    });
+
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    reservation.archivedByAdmin = true;
+    reservation.deletedFromAdminHistory = false;
+    await reservation.save();
+
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  @Authorized(Role.Admin)
   async deleteTreatedReservationAdmin(
     @Arg("reservationId", () => ID) reservationId: string
   ) {
@@ -585,17 +981,49 @@ export class ReservationResolver {
       throw new Error("Reservation not found");
     }
 
-    const isTreatedPickup =
-      reservation.paymentStatus === PaymentStatus.Paid && !reservation.stripeSessionId;
+    const isTreatedOrder =
+      reservation.archivedByAdmin || reservation.status === ReservationStatus.Ended;
 
-    if (reservation.status !== ReservationStatus.Ended && !isTreatedPickup) {
-      throw new Error("Seules les commandes traitees peuvent etre supprimees.");
+    if (!isTreatedOrder) {
+      throw new Error(
+        "Seules les commandes presentes dans l'historique peuvent etre supprimees."
+      );
     }
 
-    reservation.archivedByAdmin = true;
+    reservation.deletedFromAdminHistory = true;
+    reservation.removedFromAdminHistory = true;
     await reservation.save();
 
     return true;
+  }
+
+  @Mutation(() => Reservation)
+  async restoreTreatedReservationAdmin(
+    @Arg("reservationId", () => ID) reservationId: string
+  ) {
+    const reservation = await Reservation.findOne({
+      where: { id: reservationId },
+      relations: ["user", "articles", "articles.product"],
+    });
+
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    if (reservation.paymentStatus !== PaymentStatus.Paid) {
+      throw new Error("Seules les commandes payees peuvent etre restaurees.");
+    }
+
+    reservation.archivedByAdmin = false;
+    reservation.deletedFromAdminHistory = false;
+    reservation.status = ReservationStatus.Submitted;
+
+    await reservation.save();
+
+    return Reservation.findOneOrFail({
+      where: { id: reservation.id },
+      relations: ["user", "articles", "articles.product"],
+    });
   }
 }
 

@@ -7,7 +7,6 @@ import Header from "@/components/Header";
 import client from "../graphql/client";
 import { SEND_PLATFORM_MESSAGE_TO_CLIENT } from "../graphql/mutations";
 import {
-  GET_ALL_CONTACTS,
   GET_ALL_PLATFORM_CLIENT_MESSAGES,
   WHO_AM_I,
 } from "../graphql/queries";
@@ -19,13 +18,6 @@ function AdminMessagesContent() {
   const [notice, setNotice] = useState("");
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
-  });
-  const {
-    data: contactsData,
-    loading: loadingContacts,
-    error: contactsError,
-  } = useQuery(GET_ALL_CONTACTS, {
-    fetchPolicy: "cache-and-network",
   });
   const {
     data: platformMessagesData,
@@ -44,7 +36,6 @@ function AdminMessagesContent() {
 
   const isAdmin =
     userData?.whoAmI?.isLoggedIn && userData?.whoAmI?.role === Role.Admin;
-  const contacts = contactsData?.getAllContacts ?? [];
   const platformMessages =
     platformMessagesData?.getAllPlatformClientMessages ?? [];
   const unreadClientMessageCount = platformMessages.filter(
@@ -141,11 +132,11 @@ function AdminMessagesContent() {
   return (
     <main className="admin-page">
       <section className="admin-hero">
-        <p className="shop-kicker">Contact</p>
+        <p className="shop-kicker">Plateforme</p>
         <h1>Messages clients</h1>
         <p>
-          Retrouvez ici les messages envoyes depuis la page contact et repondez
-          directement avec Gmail.
+          Retrouvez ici uniquement les conversations de la messagerie
+          plateforme avec les clients inscrits.
         </p>
         <div className="admin-shortcuts">
           <Link href="/admin">Reservations</Link>
@@ -285,105 +276,6 @@ function AdminMessagesContent() {
         )}
       </section>
 
-      <section className="admin-panel admin-messages">
-        <div className="admin-section-heading">
-          <div>
-            <p className="shop-kicker">Boite contact</p>
-            <h2>Messages recus</h2>
-          </div>
-          <strong>{contacts.length} message(s)</strong>
-        </div>
-        {loadingContacts && !contacts.length && <p>Chargement des messages...</p>}
-        {contactsError && <p>Impossible de charger les messages clients.</p>}
-        {!loadingContacts && !contacts.length && (
-          <p>Aucun message client pour le moment.</p>
-        )}
-        {contacts.length > 0 && (
-          <div className="admin-message-list">
-            {contacts.map((contact: any) => (
-              <article className="admin-message-card" key={contact.id}>
-                <div>
-                  <span className="admin-mini-label">Client</span>
-                  <strong>
-                    {contact.name} {contact.lastname}
-                  </strong>
-                  <span
-                    className={
-                      contact.isRegisteredClient
-                        ? "client-status-badge registered"
-                        : "client-status-badge visitor"
-                    }
-                  >
-                    {contact.isRegisteredClient
-                      ? "Client inscrit"
-                      : "Visiteur non inscrit"}
-                  </span>
-                  <a href={`mailto:${contact.email}`}>{contact.email}</a>
-                  {contact.isRegisteredClient && (
-                    <Link
-                      className="open-chat-button"
-                      href={`/admin-chat-client?email=${encodeURIComponent(
-                        contact.email
-                      )}`}
-                      onClick={() =>
-                        window.sessionStorage.setItem(
-                          `mark-admin-chat-read:${contact.email}`,
-                          "1"
-                        )
-                      }
-                    >
-                      Ouvrir le tchat
-                    </Link>
-                  )}
-                  <a
-                    className="gmail-reply-button"
-                    href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
-                      contact.email
-                    )}&su=${encodeURIComponent(
-                      "Reponse a votre message BeautyPlace"
-                    )}&body=${encodeURIComponent(
-                      `Bonjour ${contact.name || ""},\n\nMerci pour votre message. Nous revenons vers vous concernant votre demande.\n\n\nCordialement,\nL'equipe BeautyPlace`
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Repondre avec Gmail
-                  </a>
-                </div>
-                <p>{contact.message}</p>
-                {contact.isRegisteredClient ? (
-                  <form
-                    className="platform-reply-form"
-                    onSubmit={(event) => sendReplyOnPlatform(event, contact)}
-                  >
-                    <label>
-                      Reponse plateforme
-                      <textarea
-                        value={replyMessages[contact.id] ?? ""}
-                        onChange={(event) =>
-                          setReplyMessages((current) => ({
-                            ...current,
-                            [contact.id]: event.target.value,
-                          }))
-                        }
-                        placeholder="Ecrire un message visible dans l'espace client..."
-                      />
-                    </label>
-                    <button type="submit" disabled={sendingMessage}>
-                      Envoyer sur la plateforme
-                    </button>
-                  </form>
-                ) : (
-                  <p className="platform-reply-warning">
-                    Reponse plateforme indisponible : cette personne n'a pas
-                    encore de compte client.
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
     </main>
   );
 }

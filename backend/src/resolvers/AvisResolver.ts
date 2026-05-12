@@ -150,6 +150,7 @@ class AvisResolver {
     return avi;
   }
 
+  @Authorized(Role.Admin)
   @Mutation(() => Boolean)
   async deleteAvis(@Arg("aviId") aviId: string): Promise<boolean> {
     const avi = await Avis.findOne({ where: { id: parseInt(aviId) } });

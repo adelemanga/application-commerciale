@@ -70,13 +70,30 @@ class ProductResolver {
   @Query(() => [Product])
   async getAllProducts() {
     const products = await Product.find({
-      relations: {
-        articles: {
-          reservations: true,
-        },
+      order: {
+        id: "ASC",
       },
     });
-    return products;
+
+    return Promise.all(
+      products.map(async (product) => {
+        product.stockCount = await Article.count({
+          where: {
+            product: {
+              id: product.id,
+            },
+          },
+        });
+        product.articles = await Article.createQueryBuilder("article")
+          .leftJoin("article.product", "product")
+          .where("product.id = :productId", { productId: product.id })
+          .orderBy("article.id", "ASC")
+          .take(80)
+          .getMany();
+
+        return product;
+      })
+    );
   }
 
   @Authorized(Role.Admin)
@@ -144,6 +161,7 @@ class ProductResolver {
         },
       },
     });
+    updatedProduct.stockCount = updatedProduct.articles?.length ?? targetQuantity;
 
     return updatedProduct;
   }
@@ -240,8 +258,22 @@ class ProductResolver {
   async deleteProduct(@Arg("id", () => ID) idToDelete: string) {
     const articlesToDelete = await Article.find({
       where: { product: { id: idToDelete } },
+      relations: {
+        reservations: true,
+      },
     });
-    articlesToDelete.forEach((article) => Article.delete(article.id));
+
+    const isLinkedToOrder = articlesToDelete.some(
+      (article) => article.reservations && article.reservations.length > 0
+    );
+
+    if (isLinkedToOrder) {
+      throw new Error(
+        "Impossible de supprimer un produit deja rattache a une commande."
+      );
+    }
+
+    await Article.remove(articlesToDelete);
     await Product.delete(idToDelete);
     return `Product deleted successfully`;
   }

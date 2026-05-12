@@ -43,4 +43,7 @@ export class Product extends BaseEntity {
   @Field(() => [Article], { nullable: true })
   @OneToMany(() => Article, (article) => article.product)
   articles?: Article[];
+
+  @Field({ nullable: true })
+  stockCount?: number;
 }

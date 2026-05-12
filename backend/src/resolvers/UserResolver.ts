@@ -6,14 +6,42 @@ import {
   ObjectType,
   Field,
 } from "type-graphql";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Role, User } from "../entities/User";
 import jwt from "jsonwebtoken";
 import { Context } from "../../src";
+import {
+  sendPasswordResetCodeEmail,
+  sendPasswordResetEmail,
+} from "../services/authEmail";
+import { sendPasswordResetSms } from "../services/sms";
+import { isValidPhoneNumber, normalizePhoneNumber } from "../utils/phone";
 
 const buildAuthCookie = (token: string, maxAge = 60 * 60 * 24 * 7) => {
   const secureFlag = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return `token=${token}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax; Path=/${secureFlag}`;
+};
+
+const hashResetToken = (token: string) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const createResetCode = () =>
+  String(crypto.randomInt(100000, 1000000));
+
+const buildFrontendUrl = (frontendUrl?: string | null) => {
+  const fallback = process.env.FRONTEND_URL || "http://localhost:3000";
+  const candidate = frontendUrl?.trim() || fallback;
+
+  if (
+    candidate.startsWith("http://localhost") ||
+    candidate.startsWith("http://127.0.0.1") ||
+    candidate.startsWith("https://")
+  ) {
+    return candidate.replace(/\/$/, "");
+  }
+
+  return fallback.replace(/\/$/, "");
 };
 
 @ObjectType()
@@ -181,6 +209,12 @@ export class UserResolver {
       );
     }
 
+    const cleanPhone = phone?.trim() ? normalizePhoneNumber(phone) : undefined;
+
+    if (cleanPhone && !isValidPhoneNumber(cleanPhone)) {
+      throw new Error("Numero de telephone invalide.");
+    }
+
     // HASH PASSWORD (bcrypt FIX IMPORTANT)
     const hashedPassword = await bcrypt.hash(password.trim(), 10);
 
@@ -188,7 +222,7 @@ export class UserResolver {
       email: normalizedEmail,
       firstname: firstname.trim(),
       lastname: lastname.trim(),
-      phone: phone?.trim(),
+      phone: cleanPhone,
       address: address?.trim(),
       avatarUrl,
       hashedPassword,
@@ -264,6 +298,154 @@ export class UserResolver {
     context.res.setHeader("Set-Cookie", buildAuthCookie(token));
 
     return token;
+  }
+
+  @Mutation(() => String)
+  async requestPasswordReset(
+    @Arg("email") email: string,
+    @Arg("frontendUrl", { nullable: true }) frontendUrl?: string
+  ) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOneBy({ email: normalizedEmail });
+    const successMessage =
+      "Si ce compte existe, un email de recuperation vient d'etre envoye.";
+
+    if (!user) {
+      return successMessage;
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    user.passwordResetToken = hashResetToken(token);
+    user.passwordResetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    const resetUrl = `${buildFrontendUrl(
+      frontendUrl
+    )}/reinitialiser-mot-de-passe?email=${encodeURIComponent(
+      user.email
+    )}&token=${encodeURIComponent(token)}`;
+
+    await sendPasswordResetEmail(user, resetUrl);
+    return successMessage;
+  }
+
+  @Mutation(() => String)
+  async requestPasswordResetCode(
+    @Arg("email") email: string,
+    @Arg("channel") channel: string,
+    @Arg("frontendUrl", { nullable: true }) frontendUrl?: string
+  ) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedChannel = channel.trim().toLowerCase();
+    const user = await User.findOneBy({ email: normalizedEmail });
+    const successMessage =
+      normalizedChannel === "sms"
+        ? "Si ce compte existe et possede un telephone, un code vient d'etre envoye par SMS."
+        : "Si ce compte existe, un code vient d'etre envoye par email.";
+
+    if (!["email", "sms"].includes(normalizedChannel)) {
+      throw new Error("Choisissez une recuperation par email ou SMS.");
+    }
+
+    if (!user) {
+      return successMessage;
+    }
+
+    if (normalizedChannel === "sms" && !user.phone) {
+      throw new Error("Aucun numero de telephone n'est associe a ce compte.");
+    }
+
+    const code = createResetCode();
+    user.passwordResetCode = hashResetToken(code);
+    user.passwordResetCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    const resetUrl = `${buildFrontendUrl(
+      frontendUrl
+    )}/reinitialiser-mot-de-passe?email=${encodeURIComponent(user.email)}`;
+
+    if (normalizedChannel === "sms") {
+      await sendPasswordResetSms(user.phone || "", code);
+      return successMessage;
+    }
+
+    await sendPasswordResetCodeEmail(user, code, resetUrl);
+    return successMessage;
+  }
+
+  @Mutation(() => String)
+  async resetPassword(
+    @Arg("email") email: string,
+    @Arg("token") token: string,
+    @Arg("password") password: string
+  ) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+
+    if (trimmedPassword.length < 6) {
+      throw new Error("Le nouveau mot de passe doit contenir au moins 6 caracteres.");
+    }
+
+    const user = await User.findOneBy({
+      email: normalizedEmail,
+      passwordResetToken: hashResetToken(token.trim()),
+    });
+
+    if (
+      !user ||
+      !user.passwordResetTokenExpiresAt ||
+      user.passwordResetTokenExpiresAt.getTime() < Date.now()
+    ) {
+      throw new Error("Lien de recuperation invalide ou expire.");
+    }
+
+    user.hashedPassword = await bcrypt.hash(trimmedPassword, 10);
+    user.passwordResetToken = null;
+    user.passwordResetTokenExpiresAt = null;
+    await user.save();
+
+    return "Mot de passe mis a jour. Vous pouvez vous connecter.";
+  }
+
+  @Mutation(() => String)
+  async resetPasswordWithCode(
+    @Arg("email") email: string,
+    @Arg("code") code: string,
+    @Arg("password") password: string
+  ) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const trimmedCode = code.trim();
+    const trimmedPassword = password.trim();
+
+    if (!/^\d{6}$/.test(trimmedCode)) {
+      throw new Error("Le code doit contenir exactement 6 chiffres.");
+    }
+
+    if (trimmedPassword.length < 6) {
+      throw new Error("Le nouveau mot de passe doit contenir au moins 6 caracteres.");
+    }
+
+    const user = await User.findOneBy({
+      email: normalizedEmail,
+      passwordResetCode: hashResetToken(trimmedCode),
+    });
+
+    if (
+      !user ||
+      !user.passwordResetCodeExpiresAt ||
+      user.passwordResetCodeExpiresAt.getTime() < Date.now()
+    ) {
+      throw new Error("Code de recuperation invalide ou expire.");
+    }
+
+    user.hashedPassword = await bcrypt.hash(trimmedPassword, 10);
+    user.passwordResetToken = null;
+    user.passwordResetTokenExpiresAt = null;
+    user.passwordResetCode = null;
+    user.passwordResetCodeExpiresAt = null;
+    await user.save();
+
+    return "Mot de passe mis a jour. Vous pouvez vous connecter.";
   }
 
   // =========================

@@ -39,6 +39,7 @@ export const GET_ALL_PRODUCTS = gql`
       imgUrl
       price
       category
+      stockCount
       articles {
         id
       }
@@ -70,6 +71,7 @@ export const GET_PRODUCT_BY_ID = gql`
       imgUrl
       price
       category
+      stockCount
       articles {
         id
       }
@@ -128,6 +130,7 @@ export const GET_RESERVATIONS_BY_USER_ID = gql`
         paymentMethod
         paymentStatus
         stripeSessionId
+        articlesSnapshot
         pickupDate
         pickupTime
         deliveryMethod
@@ -184,6 +187,7 @@ export const GET_CURRENT_RESERVATION_BY_USER_ID = gql`
         paymentMethod
         paymentStatus
         pickupDate
+        articlesSnapshot
         pickupTime
         deliveryMethod
         relayName
@@ -234,11 +238,57 @@ export const GET_ALL_RESERVATIONS = gql`
       endDate
       createdAt
       status
+      archivedByAdmin
+      deletedFromAdminHistory
       customerPhone
       customerAddress
       paymentMethod
       paymentStatus
       stripeSessionId
+      articlesSnapshot
+      pickupDate
+      pickupTime
+      deliveryMethod
+      relayName
+      relayAddress
+      shippingCarrier
+      trackingNumber
+      user {
+        email
+        firstname
+        lastname
+        phone
+        address
+      }
+      articles {
+        id
+        product {
+          id
+          name
+          price
+          imgUrl
+        }
+      }
+    }
+  }
+`;
+
+export const GET_TREATED_RESERVATIONS_ADMIN = gql`
+  query GetTreatedReservationsAdmin {
+    getTreatedReservationsAdmin {
+      id
+      startDate
+      endDate
+      createdAt
+      status
+      archivedByAdmin
+      deletedFromAdminHistory
+      customerPhone
+      customerAddress
+      paymentMethod
+      paymentStatus
+      stripeSessionId
+      articlesSnapshot
       pickupDate
       pickupTime
       deliveryMethod
