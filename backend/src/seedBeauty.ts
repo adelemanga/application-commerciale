@@ -13,7 +13,7 @@ const products = [
     imgUrl:
       "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80",
     price: 39,
-    category: "maquillage",
+    category: "massage",
     stock: 5,
   },
   {
@@ -161,7 +161,7 @@ const products = [
     description:
       "Shampoing soin pour nettoyer en douceur et raviver la brillance des cheveux.",
     imgUrl:
-      "https://images.unsplash.com/photo-1522337660859-02fbefca4702?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=900&q=80",
     price: 21,
     category: "capillaires",
     stock: 12,

@@ -32,6 +32,11 @@ const productImageFallbacks: Record<string, string> = {
     "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=900&q=80",
 };
 
+const productImageOverrides: Record<string, string> = {
+  shampoing:
+    "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=900&q=80",
+};
+
 const isReadableImageSource = (image?: string | null) => {
   const source = image?.trim();
 
@@ -61,6 +66,15 @@ export const getProductImage = (product?: {
   imgUrl?: string | null;
   name?: string | null;
 }) => {
+  const normalizedName = product?.name?.toLowerCase() || "";
+  const overrideKey = Object.keys(productImageOverrides).find((key) =>
+    normalizedName.includes(key)
+  );
+
+  if (overrideKey) {
+    return productImageOverrides[overrideKey];
+  }
+
   const image = product?.imgUrl?.trim();
 
   if (isReadableImageSource(image)) {

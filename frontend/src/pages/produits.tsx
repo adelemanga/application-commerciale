@@ -32,11 +32,11 @@ const categories = {
   },
   massage: {
     label: "Massage",
-    keywords: ["masque", "creme", "douceur", "cocooning", "confort"],
+    keywords: ["masque", "creme", "douceur", "cocooning", "confort", "serum"],
   },
   maquillage: {
     label: "Make up",
-    keywords: ["maquillage", "palette", "teint", "serum"],
+    keywords: ["maquillage", "palette", "teint"],
   },
   capillaires: {
     label: "Cheveux",
@@ -45,6 +45,57 @@ const categories = {
 } as const;
 
 type CategoryKey = keyof typeof categories;
+
+const categoryAliases: Record<string, CategoryKey> = {
+  manucure: "manucure",
+  manicure: "manucure",
+  ongles: "manucure",
+  massage: "massage",
+  spa: "massage",
+  maquillage: "maquillage",
+  makeup: "maquillage",
+  "make-up": "maquillage",
+  "make up": "maquillage",
+  capillaires: "capillaires",
+  cheveux: "capillaires",
+  hair: "capillaires",
+  "soins capillaires": "capillaires",
+  "soins-capillaires": "capillaires",
+};
+
+const normalizeText = (value?: string | null) =>
+  value
+    ?.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim() ?? "";
+
+const getProductCategoryKey = (
+  product: ProductWithArticles
+): CategoryKey | null => {
+  const searchable = normalizeText(`${product.name} ${product.description}`);
+
+  if (searchable.includes("serum")) {
+    return "massage";
+  }
+
+  const savedCategory = normalizeText(product.category);
+
+  if (savedCategory && categoryAliases[savedCategory]) {
+    return categoryAliases[savedCategory];
+  }
+
+  const inferredCategory = (Object.entries(categories) as [
+    CategoryKey,
+    (typeof categories)[CategoryKey]
+  ][]).find(([, categoryData]) =>
+    categoryData.keywords.some((keyword) =>
+      searchable.includes(normalizeText(keyword))
+    )
+  );
+
+  return inferredCategory?.[0] ?? null;
+};
 
 function ProduitsContent() {
   const router = useRouter();
@@ -106,14 +157,9 @@ function ProduitsContent() {
       return sellableProducts;
     }
 
-    return sellableProducts.filter((product) => {
-      if (product.category === selectedCategory) {
-        return true;
-      }
-
-      const searchable = `${product.name} ${product.description}`.toLowerCase();
-      return category.keywords.some((keyword) => searchable.includes(keyword));
-    });
+    return sellableProducts.filter(
+      (product) => getProductCategoryKey(product) === selectedCategory
+    );
   }, [category, products, selectedCategory]);
 
   const reservation = cartData?.getCurrentReservationByUserId?.reservation;
