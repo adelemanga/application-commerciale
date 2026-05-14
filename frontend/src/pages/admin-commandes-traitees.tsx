@@ -21,7 +21,7 @@ const formatPrice = (price?: number) =>
 
 const paymentLabels: Record<string, string> = {
   pending: "a payer",
-  paid: "paye",
+  paid: "payé",
 };
 
 const deliveryLabels: Record<string, string> = {
@@ -120,7 +120,9 @@ function TreatedOrdersContent() {
     );
 
     return (
+      reservation.paymentStatus === "paid" &&
       total > 0 &&
+      orderedArticles.length > 0 &&
       (reservation.archivedByAdmin || reservation.status === "ended")
     );
   });
@@ -129,14 +131,14 @@ function TreatedOrdersContent() {
     <main className="admin-page">
       <section className="admin-hero">
         <p className="shop-kicker">Archives</p>
-        <h1>Commandes traitees</h1>
+        <h1>Commandes traitées</h1>
         <p>
-          Retrouvez ici les commandes deja traitees avant leur suppression
+          Retrouvez ici les commandes déjà traitées avant leur suppression
           definitive de votre espace administrateur.
         </p>
         <div className="admin-shortcuts">
           <Link href="/admin">Retour admin</Link>
-          <Link href="/admin#commandes-clients">Commandes a traiter</Link>
+          <Link href="/admin#commandes-clients">Commandes à traiter</Link>
         </div>
       </section>
 
@@ -146,15 +148,15 @@ function TreatedOrdersContent() {
             <p className="shop-kicker">Terminées</p>
             <h2>Historique des commandes</h2>
           </div>
-          <strong>{treatedReservations.length} traitee(s)</strong>
+          <strong>{treatedReservations.length} traitée(s)</strong>
         </div>
 
-        {loadingReservations && <p>Chargement des commandes traitees...</p>}
+        {loadingReservations && <p>Chargement des commandes traitées...</p>}
         {reservationsError && (
-          <p>Impossible de charger les commandes traitees.</p>
+          <p>Impossible de charger les commandes traitées.</p>
         )}
         {!loadingReservations && !treatedReservations.length && (
-          <p>Aucune commande traitee pour le moment.</p>
+          <p>Aucune commande traitée pour le moment.</p>
         )}
 
         <div className="orders-table">
@@ -172,21 +174,21 @@ function TreatedOrdersContent() {
               Boolean(reservation.stripeSessionId);
             const deliveryModeLabel =
               deliveryLabels[reservation.deliveryMethod || "home"] ||
-              "Livraison a domicile";
+              "Livraison à domicile";
             const isArchivedOrder = Boolean(reservation.archivedByAdmin);
             const orderDate = reservation.createdAt
               ? new Date(reservation.createdAt).toLocaleDateString("fr-FR")
               : "date non renseignee";
             const trackingLabel = `${
-              reservation.shippingCarrier || "Transporteur a definir"
-            } - ${reservation.trackingNumber || "numero a renseigner"}`;
+              reservation.shippingCarrier || "Transporteur à définir"
+            } - ${reservation.trackingNumber || "numéro à renseigner"}`;
             const pickupLabel = reservation.pickupDate
               ? `${new Date(reservation.pickupDate).toLocaleDateString(
                   "fr-FR"
                 )}${
                   reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""
                 }`
-              : "date non renseignee";
+              : "date non renseignée";
 
             return (
               <article className="order-row" key={reservation.id}>
@@ -195,10 +197,10 @@ function TreatedOrdersContent() {
                   <div>
                     <span className="status-pill status-ended">
                       {isArchivedOrder
-                        ? "sortie de la liste a traiter"
+                        ? "sortie de la liste à traiter"
                         : isOnlinePaid
-                        ? "colis livre"
-                        : "commande traitee"}
+                        ? "colis livré"
+                        : "commande traitée"}
                     </span>
                     <span
                       className={`status-pill payment-${reservation.paymentStatus}`}
@@ -218,14 +220,14 @@ function TreatedOrdersContent() {
                     <span className="admin-mini-label">Statut</span>
                     <strong>
                       {isArchivedOrder
-                        ? "Supprimee de la liste a traiter"
-                        : "Commande terminee"}
+                        ? "Supprimée de la liste à traiter"
+                        : "Commande terminée"}
                     </strong>
                   </div>
                   <div>
                     <span className="admin-mini-label">Paiement</span>
                     <strong>
-                      {isOnlinePaid ? "Carte bancaire confirmee" : "Paye"}
+                      {isOnlinePaid ? "Carte bancaire confirmée" : "Payé"}
                     </strong>
                   </div>
                   <div>
@@ -258,7 +260,7 @@ function TreatedOrdersContent() {
                       "non renseigne"}
                   </p>
                   <p>
-                    Coordonnees :{" "}
+                    Coordonnées :{" "}
                     {reservation.customerAddress ||
                       reservation.user?.address ||
                       "non renseignee"}
@@ -281,7 +283,7 @@ function TreatedOrdersContent() {
                               ? ` a ${reservation.pickupTime}`
                               : ""
                           }`
-                        : "date non renseignee"}
+                        : "date non renseignée"}
                     </p>
                   )}
                   {reservation.paymentMethod !== "card" && (
@@ -295,7 +297,7 @@ function TreatedOrdersContent() {
                               ? ` a ${reservation.pickupTime}`
                               : ""
                           }`
-                        : "date non renseignee"}
+                        : "date non renseignée"}
                     </p>
                   )}
                 </div>
@@ -326,7 +328,7 @@ function TreatedOrdersContent() {
                       ))
                     ) : (
                       <li className="order-product-empty">
-                        Donnees produit non disponibles dans cette reservation.
+                        Données produit non disponibles dans cette reservation.
                       </li>
                     )}
                   </ul>
@@ -339,7 +341,7 @@ function TreatedOrdersContent() {
                       ? "Commande conservee dans l'historique BeautyPlace."
                       : isOnlinePaid
                       ? "Commande payée en ligne et colis livre au client."
-                      : "Commande traitee par BeautyPlace."}
+                      : "Commande traitée par BeautyPlace."}
                   </p>
                   {isOnlinePaid && (
                     <p className="admin-tracking-summary">

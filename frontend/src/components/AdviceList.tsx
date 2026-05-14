@@ -133,7 +133,7 @@ function AdviceList() {
             <span className="verified-purchase-badge">Achat vérifié</span>
             <p className="rating">{"⭐".repeat(advice.rating)}</p>
 
-            <p>{advice.message}</p>
+            <p className="advice-message">{advice.message}</p>
 
             {advice.adminReply && (
               <div className="advice-admin-reply">

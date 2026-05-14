@@ -196,10 +196,10 @@ function Advice() {
 
       {!loadingUser && !isClient && (
         <div className="verified-review-lock">
-          <strong>Connexion client requise</strong>
+          <strong>Connexion requise pour écrire un avis</strong>
           <p>
-            Les avis sont réservés aux clients BeautyPlace ayant reçu une
-            commande payée.
+            Tous les visiteurs peuvent lire les avis. Pour commenter, il faut
+            être client BeautyPlace et avoir reçu une commande payée.
           </p>
           <Link href="/connexion-client">Me connecter</Link>
         </div>
@@ -209,8 +209,8 @@ function Advice() {
         <div className="verified-review-lock">
           <strong>Avis disponible après réception</strong>
           <p>
-            Vous pourrez laisser un avis lorsque votre commande payée sera
-            marquée comme reçue.
+            Vous pouvez lire tous les avis. Le formulaire sera disponible quand
+            une de vos commandes payées sera marquée comme reçue.
           </p>
           <Link href="/suivi-commandes">Voir mon suivi</Link>
         </div>

@@ -197,7 +197,7 @@ const buildOrderHtml = (
         reservation.paymentMethod === "card"
           ? "Carte bancaire"
           : "Paiement sur place"
-      } - ${reservation.paymentStatus === "paid" ? "paye" : "a payer"}</p>
+      } - ${reservation.paymentStatus === "paid" ? "payé" : "à payer"}</p>
       ${deliveryHtml}
       ${trackingHtml}
       <table style="width:100%;border-collapse:collapse;margin:18px 0;">
@@ -321,10 +321,10 @@ export const sendOrderStatusUpdateEmail = async (reservation: Reservation) => {
         <p>Bonjour ${reservation.user?.firstname ?? ""},</p>
         <p>Le statut de votre commande Beauty Place #${
           reservation.id
-        } a ete mis a jour.</p>
+        } a été mis à jour.</p>
         <p><strong>Nouveau statut :</strong> ${statusLabel}</p>
         <p><strong>Paiement :</strong> ${
-          reservation.paymentStatus === "paid" ? "paye" : "a payer"
+          reservation.paymentStatus === "paid" ? "payé" : "à payer"
         }</p>
         <p><strong>Mode :</strong> ${getDeliveryLabel(reservation)}</p>
         ${
@@ -359,7 +359,7 @@ export const sendOrderReceivedEmail = async (reservation: Reservation) => {
 
   if (!transporter || !from || !adminEmail) {
     console.warn(
-      "Email reception non envoye: configurez GMAIL_USER, GMAIL_APP_PASSWORD et ADMIN_ORDER_EMAIL."
+      "Email reception non envoyé: configurez GMAIL_USER, GMAIL_APP_PASSWORD et ADMIN_ORDER_EMAIL."
     );
     return;
   }
@@ -382,7 +382,7 @@ export const sendOrderReceivedEmail = async (reservation: Reservation) => {
         <p><strong>Numero de suivi :</strong> ${
           reservation.trackingNumber || "Non renseigne"
         }</p>
-        <p>Cette commande peut etre consideree comme traitee.</p>
+        <p>Cette commande peut etre consideree comme traitée.</p>
       </div>
     `,
   });

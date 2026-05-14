@@ -10,8 +10,8 @@ export default function AdvicePage() {
     <ApolloProvider client={client}>
       <div>
         <Header />
-        <Advice />
         <AdviceList/>
+        <Advice />
         <Footer />
       </div>
     </ApolloProvider>

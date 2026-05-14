@@ -229,7 +229,7 @@ function NewProductContent() {
         <div className="admin-shortcuts">
           <Link href="/admin-produits">Liste des produits</Link>
           <Link href="/admin#commandes-clients">Reservations</Link>
-          <Link href="/admin-commandes-traitees">Commandes traitees</Link>
+          <Link href="/admin-commandes-traitees">Commandes traitées</Link>
         </div>
       </section>
 

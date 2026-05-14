@@ -873,7 +873,7 @@ export class ReservationResolver {
       !hasConfirmedOnlinePayment(reservation)
     ) {
       throw new Error(
-        "Paiement carte non confirme par Stripe. Cette commande ne peut pas etre marquee payee."
+        "Paiement carte non confirme par Stripe. Cette commande ne peut pas etre marquee payée."
       );
     }
 

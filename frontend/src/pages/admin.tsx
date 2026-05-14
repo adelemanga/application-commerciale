@@ -87,7 +87,7 @@ const statusLabels: Record<string, string> = {
 
 const paymentLabels: Record<string, string> = {
   pending: "a payer",
-  paid: "paye",
+  paid: "payé",
 };
 
 const deliveryLabels: Record<string, string> = {
@@ -629,7 +629,7 @@ function AdminContent() {
         <div className="admin-shortcuts">
           <a href="#commandes-clients">Reservations</a>
           <Link href="/admin-messages">Messages</Link>
-          <Link href="/admin-commandes-traitees">Commandes traitees</Link>
+          <Link href="/admin-commandes-traitees">Commandes traitées</Link>
           <Link href="/admin-produits">Produits</Link>
           <Link href="/admin-nouveau-produit">Nouveau produit</Link>
           <Link href="/inscription-administrateur">Nouvel admin</Link>
@@ -660,7 +660,7 @@ function AdminContent() {
             <p className="shop-kicker">Commandes</p>
             <h2>Liste des reservations</h2>
           </div>
-          <strong>{reservations.length} a traiter</strong>
+          <strong>{reservations.length} à traiter</strong>
         </div>
         {loadingReservations && <p>Chargement des commandes...</p>}
         {reservationsError && <p>Impossible de charger les commandes.</p>}
@@ -840,8 +840,8 @@ function AdminContent() {
                       <option value="pending">pending - a payer</option>
                       <option value="paid">
                         {hasOnlinePaymentIntent
-                          ? "paid - paye"
-                          : "paid - paye et retire sur place"}
+                          ? "paid - payé"
+                          : "paid - payé et retire sur place"}
                       </option>
                     </select>
                   </label>

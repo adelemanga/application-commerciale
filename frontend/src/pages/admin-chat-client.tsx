@@ -12,6 +12,12 @@ import {
 import { GET_ALL_PLATFORM_CLIENT_MESSAGES, WHO_AM_I } from "../graphql/queries";
 import { Role } from "../interface/types";
 
+const defaultClientAvatar =
+  "https://img.freepik.com/premium-vector/default-avatar-profile-icon-vector-social-media-user-image_543062-212.jpg";
+
+const beautyPlaceAvatar =
+  "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=120&q=80";
+
 function AdminChatClientContent() {
   const router = useRouter();
   const selectedEmail =
@@ -69,6 +75,7 @@ function AdminChatClientContent() {
   ]
     .filter(Boolean)
     .join(" ");
+  const clientAvatar = clientIdentity?.avatarUrl || defaultClientAvatar;
   const unreadClientMessages = conversationMessages.filter(
     (platformMessage: any) =>
       platformMessage.senderRole === "Client" && !platformMessage.readAt
@@ -297,41 +304,57 @@ function AdminChatClientContent() {
                 <article
                   className={
                     isAdminMessage
-                      ? "admin-chat-message admin-chat-message-admin"
-                      : "admin-chat-message admin-chat-message-client"
+                      ? "admin-chat-message-row admin-chat-message-row-admin admin-conversation-row"
+                      : "admin-chat-message-row admin-chat-message-row-client"
                   }
                   key={platformMessage.id}
                 >
-                  <div>
-                    <strong>
-                      {isAdminMessage
-                        ? "BeautyPlace"
-                        : clientDisplayName || selectedEmail || "Client"}
-                    </strong>
-                    <span>
-                      {new Date(platformMessage.createdAt).toLocaleString(
-                        "fr-FR"
-                      )}
-                    </span>
-                  </div>
-                  <p>{platformMessage.message}</p>
-                  <span
+                  <img
+                    className="chat-avatar"
+                    src={isAdminMessage ? beautyPlaceAvatar : clientAvatar}
+                    alt={isAdminMessage ? "BeautyPlace" : "Photo du client"}
+                    onError={(event) => {
+                      event.currentTarget.src = defaultClientAvatar;
+                    }}
+                  />
+                  <div
                     className={
                       isAdminMessage
-                        ? "message-read-status"
-                        : platformMessage.readAt
-                        ? "message-read-status"
-                        : "message-unread-status"
+                        ? "admin-chat-message admin-chat-message-admin admin-conversation-message"
+                        : "admin-chat-message admin-chat-message-client"
                     }
                   >
-                    {isAdminMessage
-                      ? platformMessage.readAt
-                        ? "✓✓ Lu par le client"
-                        : "● Non lu par le client"
-                      : platformMessage.readAt
-                      ? "✓✓ Lu"
-                      : "● Non lu"}
-                  </span>
+                    <div>
+                      <strong>
+                        {isAdminMessage
+                          ? "BeautyPlace"
+                          : clientDisplayName || selectedEmail || "Client"}
+                      </strong>
+                      <span>
+                        {new Date(platformMessage.createdAt).toLocaleString(
+                          "fr-FR"
+                        )}
+                      </span>
+                    </div>
+                    <p>{platformMessage.message}</p>
+                    <span
+                      className={
+                        isAdminMessage
+                          ? "message-read-status"
+                          : platformMessage.readAt
+                          ? "message-read-status"
+                          : "message-unread-status"
+                      }
+                    >
+                      {isAdminMessage
+                        ? platformMessage.readAt
+                          ? "✓✓ Lu par le client"
+                          : "● Non lu par le client"
+                        : platformMessage.readAt
+                        ? "✓✓ Lu"
+                        : "● Non lu"}
+                    </span>
+                  </div>
                 </article>
               );
             })}

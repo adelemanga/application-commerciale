@@ -135,7 +135,7 @@ function MessagesClientContent() {
   }
 
   return (
-    <main className="admin-page admin-chat-page">
+    <main className="admin-page admin-chat-page client-chat-page">
       <section className="shop-hero">
         <p className="shop-kicker">Messages BeautyPlace</p>
         <h1>Ma messagerie</h1>
@@ -192,7 +192,7 @@ function MessagesClientContent() {
                   className={
                     isClientMessage
                       ? "admin-chat-message-row admin-chat-message-row-client"
-                      : "admin-chat-message-row admin-chat-message-row-admin"
+                      : "admin-chat-message-row admin-chat-message-row-admin admin-conversation-row"
                   }
                   key={clientMessage.id}
                 >
@@ -210,7 +210,7 @@ function MessagesClientContent() {
                     className={
                       isClientMessage
                         ? "admin-chat-message admin-chat-message-client"
-                        : "admin-chat-message admin-chat-message-admin"
+                        : "admin-chat-message admin-chat-message-admin admin-conversation-message"
                     }
                   >
                     <div>

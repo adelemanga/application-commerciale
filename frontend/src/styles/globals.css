@@ -3449,18 +3449,32 @@ form button:hover,
 }
 
 .admin-chat-message-row-admin {
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: 42px minmax(0, 1fr);
   justify-self: end;
 }
 
 .admin-chat-message-row-admin .chat-avatar {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1;
 }
 
 .admin-chat-message-row-admin .admin-chat-message {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
+}
+
+.client-chat-page .admin-chat-message-row-admin {
+  grid-template-columns: 42px minmax(0, 1fr);
+  justify-self: end;
+}
+
+.client-chat-page .admin-chat-message-row-admin .chat-avatar {
+  grid-column: 1;
+}
+
+.client-chat-page .admin-chat-message-row-admin .admin-chat-message {
+  grid-column: 2;
+  justify-self: end;
 }
 
 .chat-avatar {
@@ -3516,6 +3530,24 @@ form button:hover,
   color: #ffffff;
   background: #d24b7c;
   border-color: #d24b7c;
+}
+
+.admin-conversation-row {
+  background: var(--plum)!important;
+}
+
+.admin-conversation-message {
+  color: #ffffff;
+  background: var(--plum) !important;
+}
+
+.admin-conversation-message strong,
+.admin-conversation-message p {
+  color: #ffffff;
+}
+
+.admin-conversation-message div > span {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .admin-form,
@@ -4282,19 +4314,21 @@ form.avis {
 
 .customer-advice-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 22px;
-  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+  align-items: stretch;
 }
 
 .advice-card {
   position: relative;
   display: grid;
+  grid-template-rows: auto auto auto auto auto minmax(64px, 1fr) auto auto;
   justify-items: center;
-  gap: 10px;
-  min-height: 0;
-  padding: 68px 20px 22px;
-  margin-top: 52px;
+  gap: 7px;
+  height: 100%;
+  min-height: 310px;
+  padding: 46px 16px 16px;
+  margin-top: 36px;
   text-align: center;
   background: #ffffff;
   border: 1px solid rgba(184, 95, 122, 0.16);
@@ -4310,22 +4344,29 @@ form.avis {
 
 .advice-card .advice-avatar {
   position: absolute;
-  top: -52px;
+  top: -36px;
   left: 50%;
   transform: translateX(-50%);
+  width: 72px;
+  height: 72px;
 }
 
 .advice-card h3 {
   margin: 0;
   color: var(--plum);
-  font-size: 1.35rem;
+  font-size: 1.08rem;
   line-height: 1.2;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .advice-card p {
   margin: 0;
   color: var(--muted);
-  line-height: 1.6;
+  line-height: 1.42;
+  font-size: 0.92rem;
   overflow-wrap: anywhere;
 }
 
@@ -4338,13 +4379,13 @@ form.avis {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 28px;
-  padding: 6px 10px;
+  min-height: 24px;
+  padding: 4px 8px;
   color: #1f6b3a;
   background: #e5f5e9;
   border: 1px solid #b8dfc2;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 950;
   text-transform: uppercase;
 }
@@ -4352,14 +4393,23 @@ form.avis {
 .advice-card .rating {
   color: #c7952d;
   letter-spacing: 1px;
+  font-size: 0.92rem;
+}
+
+.advice-card .advice-message {
+  display: -webkit-box;
+  min-height: 64px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .advice-admin-reply {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
-  margin-top: 8px;
-  padding: 12px;
+  margin-top: 4px;
+  padding: 9px;
   text-align: left;
   background: #fff4e7;
   border: 1px solid rgba(94, 47, 79, 0.14);
@@ -4379,10 +4429,10 @@ form.avis {
 
 .advice-admin-reply-form {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  margin-top: 8px;
-  padding: 12px;
+  margin-top: 4px;
+  padding: 9px;
   text-align: left;
   background: #fffaf4;
   border: 1px solid var(--line);
@@ -4398,7 +4448,7 @@ form.avis {
 }
 
 .advice-admin-reply-form textarea {
-  min-height: 86px;
+  min-height: 64px;
   resize: vertical;
   padding: 11px 12px;
   color: var(--ink);
@@ -4515,11 +4565,11 @@ form.avis {
   z-index: 0;
   left: 50%;
   bottom: -34%;
-  width: 165vw;
-  height: 165vw;
+  width: clamp(620px, 165vw, 980px);
+  height: clamp(620px, 165vw, 980px);
   border-radius: 43%;
   transform: translateX(-50%);
-  opacity: 0.58;
+  opacity: 0.64;
   animation: portfolio-wave 16s linear infinite;
 }
 

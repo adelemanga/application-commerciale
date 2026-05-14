@@ -2,6 +2,7 @@ import { Mutation, Arg, Query, Ctx, ObjectType, Field } from "type-graphql";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Role, User } from "../entities/User";
+import { ClientMessage } from "../entities/ClientMessage";
 import jwt from "jsonwebtoken";
 import { Context } from "../../src";
 import {
@@ -218,6 +219,13 @@ export class UserResolver {
       address: address?.trim(),
       avatarUrl,
       hashedPassword,
+    });
+
+    await ClientMessage.save({
+      client: userFromDB,
+      senderRole: "Admin",
+      message: `Bienvenue ${userFromDB.firstname} chez BeautyPlace. Votre espace client est prêt : vous pouvez suivre vos commandes, retrouver vos factures et écrire à l'équipe BeautyPlace depuis votre messagerie.`,
+      readAt: undefined,
     });
 
     const token = jwt.sign(

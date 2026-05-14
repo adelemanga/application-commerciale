@@ -109,7 +109,7 @@ const getVerifiedReviewClient = async (context: Context) => {
 
   if (!receivedPaidOrder) {
     throw new Error(
-      "Vous pourrez laisser un avis lorsque votre commande payee sera recue."
+      "Vous pourrez laisser un avis lorsque votre commande payée sera recue."
     );
   }
 
@@ -150,14 +150,7 @@ class AvisResolver {
       await Avis.remove(incompleteAvis);
     }
 
-    const completeAvis = avis.filter(isCompleteAvis);
-    const verifiedAvis = await Promise.all(
-      completeAvis.map(async (avi) =>
-        (await hasVerifiedReviewOrder(avi.user?.id)) ? avi : null
-      )
-    );
-
-    return verifiedAvis.filter(Boolean) as Avis[];
+    return avis.filter(isCompleteAvis);
   }
 
   @Authorized(Role.User)
@@ -200,14 +193,7 @@ class AvisResolver {
         id: "DESC",
       },
     });
-    const completeAvis = avis.filter(isCompleteAvis);
-    const verifiedAvis = await Promise.all(
-      completeAvis.map(async (avi) =>
-        (await hasVerifiedReviewOrder(avi.user?.id)) ? avi : null
-      )
-    );
-
-    return verifiedAvis.filter(Boolean) as Avis[];
+    return avis.filter(isCompleteAvis);
   }
 
   @Authorized(Role.User)

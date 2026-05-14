@@ -331,6 +331,7 @@ export const GET_MY_CLIENT_MESSAGES = gql`
         email
         firstname
         lastname
+        avatarUrl
       }
     }
   }
@@ -348,6 +349,7 @@ export const GET_ALL_PLATFORM_CLIENT_MESSAGES = gql`
         email
         firstname
         lastname
+        avatarUrl
       }
     }
   }

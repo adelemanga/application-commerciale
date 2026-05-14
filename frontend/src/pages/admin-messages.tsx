@@ -6,15 +6,14 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import client from "../graphql/client";
 import { SEND_PLATFORM_MESSAGE_TO_CLIENT } from "../graphql/mutations";
-import {
-  GET_ALL_PLATFORM_CLIENT_MESSAGES,
-  WHO_AM_I,
-} from "../graphql/queries";
+import { GET_ALL_PLATFORM_CLIENT_MESSAGES, WHO_AM_I } from "../graphql/queries";
 import { Role } from "../interface/types";
 
 function AdminMessagesContent() {
   const router = useRouter();
-  const [replyMessages, setReplyMessages] = useState<Record<string, string>>({});
+  const [replyMessages, setReplyMessages] = useState<Record<string, string>>(
+    {}
+  );
   const [notice, setNotice] = useState("");
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
@@ -135,12 +134,12 @@ function AdminMessagesContent() {
         <p className="shop-kicker">Plateforme</p>
         <h1>Messages clients</h1>
         <p>
-          Retrouvez ici uniquement les conversations de la messagerie
-          plateforme avec les clients inscrits.
+          Retrouvez ici uniquement les conversations de la messagerie plateforme
+          avec les clients inscrits.
         </p>
         <div className="admin-shortcuts">
           <Link href="/admin">Reservations</Link>
-          <Link href="/admin-commandes-traitees">Commandes traitees</Link>
+          <Link href="/admin-commandes-traitees">Commandes traitées</Link>
           <Link href="/admin#gestion-produits">Produits</Link>
         </div>
       </section>
@@ -185,7 +184,10 @@ function AdminMessagesContent() {
               };
 
               return (
-                <article className="admin-message-card" key={conversation.email}>
+                <article
+                  className="admin-message-card"
+                  key={conversation.email}
+                >
                   <div>
                     <span className="admin-mini-label">
                       Conversation client
@@ -275,7 +277,6 @@ function AdminMessagesContent() {
           </div>
         )}
       </section>
-
     </main>
   );
 }
