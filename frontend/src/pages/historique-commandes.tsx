@@ -17,17 +17,17 @@ const formatPrice = (price?: number) =>
   }).format(price ?? 0);
 
 const statusLabels: Record<string, string> = {
-  submitted: "Commande recue",
-  validated: "Validee par BeautyPlace",
+  submitted: "Commande reçue",
+  validated: "Validée par BeautyPlace",
   ongoing: "En preparation",
-  shipped: "Colis envoye",
-  ended: "Colis livre / commande terminee",
+  shipped: "Colis envoyé",
+  ended: "Colis livré / commande terminée",
 };
 
 const deliveryLabels: Record<string, string> = {
-  home: "Livraison a domicile",
+  home: "Livraison à domicile",
   relay: "Point relais",
-  store: "Retrait magasin",
+  store: "Retrait en magasin",
 };
 
 const groupArticlesByProduct = (articles: any[] = []) =>
@@ -37,7 +37,9 @@ const groupArticlesByProduct = (articles: any[] = []) =>
       imgUrl: getProductImage(article.product),
     };
     const productKey = product.id || product.name || article.id;
-    const existingGroup = groups.find((group) => group.productKey === productKey);
+    const existingGroup = groups.find(
+      (group) => group.productKey === productKey
+    );
 
     if (existingGroup) {
       existingGroup.quantity += 1;
@@ -94,6 +96,12 @@ const getOrderedArticles = (reservation: any) => {
   }
 };
 
+const canShowClientInvoice = (reservation: any) =>
+  reservation?.deliveryMethod === "store" ||
+  Boolean(
+    reservation?.shippingCarrier?.trim() && reservation?.trackingNumber?.trim()
+  );
+
 function ClientOrderHistoryContent() {
   const router = useRouter();
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
@@ -106,14 +114,15 @@ function ClientOrderHistoryContent() {
   } = useQuery(GET_RESERVATIONS_BY_USER_ID, {
     fetchPolicy: "network-only",
   });
-  const [hideReservationFromClient, { loading: deletingInvoice }] =
-    useMutation(HIDE_RESERVATION_FROM_CLIENT, {
+  const [hideReservationFromClient, { loading: deletingInvoice }] = useMutation(
+    HIDE_RESERVATION_FROM_CLIENT,
+    {
       refetchQueries: [{ query: GET_RESERVATIONS_BY_USER_ID }],
-    });
+    }
+  );
 
   const user = userData?.whoAmI;
-  const isClient =
-    Boolean(user?.isLoggedIn) && user?.role === Role.User;
+  const isClient = Boolean(user?.isLoggedIn) && user?.role === Role.User;
 
   useEffect(() => {
     if (!loadingUser && !isClient) {
@@ -155,8 +164,8 @@ function ClientOrderHistoryContent() {
         <p className="shop-kicker">Espace client</p>
         <h1>Historique des commandes</h1>
         <p>
-          Retrouvez ici uniquement vos commandes payees, avec les produits, les
-          images, les prix et l'acces au suivi ou a la facture.
+          Retrouvez ici uniquement vos commandes payées, avec les produits, les
+          images, les prix et l'accès au suivi ou à la facture.
         </p>
         <div className="admin-shortcuts">
           <Link href="/clients">Retour espace client</Link>
@@ -168,7 +177,7 @@ function ClientOrderHistoryContent() {
       <section className="admin-panel admin-orders">
         <div className="admin-section-heading">
           <div>
-            <p className="shop-kicker">Commandes payees</p>
+            <p className="shop-kicker">Commandes payées</p>
             <h2>Mes achats</h2>
           </div>
           <strong>{paidOrders.length} commande(s)</strong>
@@ -177,7 +186,7 @@ function ClientOrderHistoryContent() {
         {loadingHistory && <p>Chargement de votre historique...</p>}
         {historyError && <p>Impossible de charger votre historique.</p>}
         {!loadingHistory && !paidOrders.length && (
-          <p>Aucune commande payee dans votre historique pour le moment.</p>
+          <p>Aucune commande payée dans votre historique pour le moment.</p>
         )}
 
         <div className="orders-table">
@@ -191,14 +200,17 @@ function ClientOrderHistoryContent() {
             const deliveryLabel =
               deliveryLabels[reservation.deliveryMethod || "home"] ||
               "Livraison a domicile";
+            const hasClientInvoice = canShowClientInvoice(reservation);
 
             return (
               <article className="order-row" key={reservation.id}>
                 <div className="order-head">
                   <span>Commande #{reservation.id}</span>
                   <div>
-                    <span className="status-pill payment-paid">Payee</span>
-                    <span className={`status-pill status-${reservation.status}`}>
+                    <span className="status-pill payment-paid">Payée</span>
+                    <span
+                      className={`status-pill status-${reservation.status}`}
+                    >
                       {statusLabels[reservation.status] || reservation.status}
                     </span>
                   </div>
@@ -227,7 +239,7 @@ function ClientOrderHistoryContent() {
                 </div>
 
                 <div className="order-products">
-                  <span className="admin-mini-label">Produits commandes</span>
+                  <span className="admin-mini-label">Produits commandés</span>
                   <p>
                     {orderedArticles.length} produit(s), {productLines.length}{" "}
                     reference(s) - {formatPrice(item.totalPrice)}
@@ -258,7 +270,9 @@ function ClientOrderHistoryContent() {
                     className="restore-order-button"
                     href={`/suivi-commandes?commande=${reservation.id}`}
                   >
-                    Voir le suivi et la facture
+                    {hasClientInvoice
+                      ? "Voir le suivi et la facture"
+                      : "Voir le suivi"}
                   </Link>
                   <button
                     type="button"
@@ -266,9 +280,13 @@ function ClientOrderHistoryContent() {
                     disabled={deletingInvoice}
                     onClick={() => deleteInvoiceFromHistory(reservation.id)}
                   >
-                    {deletingInvoice
+                    {hasClientInvoice
+                      ? deletingInvoice
+                        ? "Suppression..."
+                        : "Supprimer cette facture"
+                      : deletingInvoice
                       ? "Suppression..."
-                      : "Supprimer cette facture"}
+                      : "Supprimer de mon espace client"}
                   </button>
                 </div>
               </article>

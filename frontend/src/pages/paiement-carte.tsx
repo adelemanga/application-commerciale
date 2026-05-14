@@ -35,18 +35,6 @@ const relayCarrierOptions = [
     description: "Recherche officielle disponible",
     available: true,
   },
-  {
-    id: "colissimo",
-    label: "Colissimo / La Poste",
-    description: "API a brancher avant production",
-    available: false,
-  },
-  {
-    id: "chronopost",
-    label: "Chronopost Pickup",
-    description: "API a brancher avant production",
-    available: false,
-  },
 ];
 
 function PaiementCarteContent() {

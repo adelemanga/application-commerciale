@@ -361,7 +361,7 @@ h1 {
 .receipt-actions a {
   display: inline-flex;
   align-items: center;
-  background: var(--rose);
+  background: var(--plum);
 }
 
 .receipt-actions {
@@ -372,7 +372,21 @@ h1 {
 }
 
 .receipt-actions button:first-child {
-  background: var(--rose);
+  background: #6f5d63;
+}
+
+.receipt-actions button:disabled {
+  cursor: not-allowed;
+}
+
+.receipt-waiting-note {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  color: var(--plum);
+  background: #fff1d7;
+  border: 1px solid rgba(94, 47, 79, 0.12);
+  border-radius: 8px;
+  font-weight: 800;
 }
 
 .tracking-steps {
@@ -600,7 +614,7 @@ h1 {
   justify-content: center;
   width: 100%;
   overflow: visible;
-  padding: 12px clamp(14px, 3vw, 36px);
+  padding: 10px clamp(12px, 2.4vw, 28px);
   background: rgba(255, 250, 244, 0.94);
   border-bottom: 1px solid rgba(94, 47, 79, 0.14);
   box-shadow: 0 10px 32px rgba(62, 35, 45, 0.08);
@@ -608,14 +622,14 @@ h1 {
 }
 
 .nav0 {
-  width: min(1240px, 100%);
+  width: min(1320px, 100%);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(150px, auto) minmax(0, 1fr) minmax(230px, auto);
   grid-template-areas:
     "brand main actions"
     "brand services actions";
   align-items: center;
-  gap: 8px 18px;
+  gap: 8px 16px;
 }
 
 .nav0 .nav-brand {
@@ -631,33 +645,37 @@ h1 {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .nav-links {
   grid-area: main;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .nav-services {
   grid-area: services;
+  justify-content: center;
+  padding-top: 2px;
 }
 
 .nav-actions {
   grid-area: actions;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  max-width: 330px;
 }
 
 .nav0 a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 9px 13px;
+  min-height: 40px;
+  padding: 10px 14px;
   color: var(--plum);
   border-radius: 999px;
-  font-size: 0.84rem;
+  font-size: 0.94rem;
   font-weight: 820;
   text-transform: none;
   letter-spacing: 0;
@@ -682,8 +700,8 @@ h1 {
 
 .nav-actions .cart-icon-link {
   gap: 7px;
-  min-width: 86px;
-  padding: 9px 13px;
+  min-width: 96px;
+  padding: 10px 14px;
   color: var(--plum);
   background: var(--champagne);
 }
@@ -695,7 +713,8 @@ h1 {
 
 .nav-actions .nav-user-link {
   gap: 8px;
-  max-width: 230px;
+  max-width: 100%;
+  flex: 1 1 100%;
   color: #ffffff;
   background: var(--rose);
 }
@@ -724,12 +743,12 @@ h1 {
 }
 
 .nav0 .nav-services a {
-  min-height: 32px;
-  padding: 7px 12px;
+  min-height: 36px;
+  padding: 8px 13px;
   color: var(--rose);
   background: rgba(255, 255, 255, 0.48);
   border: 1px solid rgba(190, 130, 142, 0.18);
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 780;
 }
 
@@ -1224,6 +1243,65 @@ main,
 .client-mailbox-shortcut:hover {
   color: #ffffff;
   background: var(--plum);
+}
+
+.client-order-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto 18px;
+  padding: 16px 18px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--plum), #8d426a);
+  border: 1px solid rgba(94, 47, 79, 0.14);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+
+.client-order-alert div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  min-width: 0;
+  align-items: center;
+}
+
+.client-order-alert span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--plum);
+  background: #fff1d7;
+  border-radius: 999px;
+  font-weight: 950;
+}
+
+.client-order-alert strong {
+  font-weight: 950;
+}
+
+.client-order-alert p {
+  grid-column: 2;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.88);
+  overflow-wrap: anywhere;
+}
+
+.client-order-alert a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  color: var(--plum);
+  background: #ffffff;
+  border-radius: 999px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .nav-message-link,
@@ -2657,6 +2735,44 @@ form button:hover,
   font-weight: 780;
 }
 
+.password-reset-dropdown {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.password-reset-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 11px 14px;
+  color: var(--plum);
+  background: #fffaf4;
+  border: 1px solid rgba(94, 47, 79, 0.18);
+  border-radius: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.password-reset-toggle span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: #ffffff;
+  background: var(--plum);
+  border-radius: 999px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.password-reset-content {
+  display: grid;
+  gap: 12px;
+}
+
 .password-reset-panel {
   display: grid;
   gap: 12px;
@@ -3013,12 +3129,17 @@ form button:hover,
 }
 
 .restore-order-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 42px;
+  padding: 10px 14px;
   color: #ffffff;
   background: #365f43;
   border: 1px solid #365f43;
   border-radius: 6px;
   font-weight: 900;
+  text-align: center;
 }
 
 .restore-order-button:hover {
@@ -4497,17 +4618,26 @@ iframe.video-background {
 }
 
 .beauty-services {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   gap: 24px;
   width: min(1120px, calc(100% - 34px));
   margin: 0 auto 72px;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.beauty-services::-webkit-scrollbar {
+  display: none;
 }
 
 .beauty-service-card {
   display: grid;
+  flex: 0 0 calc((100% - 72px) / 4);
   gap: 14px;
   justify-items: center;
+  scroll-snap-align: start;
   padding: 0 0 18px;
   background: transparent;
   border: 0;
@@ -4984,8 +5114,16 @@ footer a {
     border-radius: 0 0 8px 8px;
   }
 
-  .beauty-services {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .beauty-service-card {
+    flex-basis: calc((100% - 24px) / 2);
+  }
+
+  .beauty-service-image-link {
+    width: min(100%, 340px);
+  }
+
+  .beauty-service-card img {
+    max-width: 340px;
   }
 
   .service-details {
@@ -5060,8 +5198,19 @@ footer a {
   }
 
   .beauty-services {
-    grid-template-columns: 1fr;
     gap: 18px;
+  }
+
+  .beauty-service-card {
+    flex-basis: 100%;
+  }
+
+  .beauty-service-image-link {
+    width: min(100%, 300px);
+  }
+
+  .beauty-service-card img {
+    max-width: 300px;
   }
 
   .beauty-story {

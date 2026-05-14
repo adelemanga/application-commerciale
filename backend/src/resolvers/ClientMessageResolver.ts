@@ -117,7 +117,9 @@ class ClientMessageResolver {
     const cleanMessage = message.trim();
 
     if (!cleanMessage) {
-      throw new Error("Ecrivez un message avant de l'envoyer a l'administrateur.");
+      throw new Error(
+        "Ecrivez un message avant de l'envoyer a l'administrateur."
+      );
     }
 
     const client = await User.findOneBy({
@@ -159,7 +161,7 @@ class ClientMessageResolver {
 
     if (!client) {
       throw new Error(
-        "Ce message ne peut etre envoye que via la plateforme a un client inscrit."
+        "Ce message ne peut être envoyé que via la plateforme a un client inscrit."
       );
     }
 

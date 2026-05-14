@@ -33,8 +33,8 @@ export default function Header() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [dismissedAdminMessageCount, setDismissedAdminMessageCount] =
-    useState(0);
+  const [dismissedAdminMessageSignature, setDismissedAdminMessageSignature] =
+    useState("");
   const { data, refetch } = useQuery(WHO_AM_I, {
     fetchPolicy: "cache-and-network",
   });
@@ -60,15 +60,20 @@ export default function Header() {
       (clientMessage: any) =>
         clientMessage.senderRole === "Admin" && !clientMessage.readAt
     ).length ?? 0;
-  const adminUnreadClientMessageCount =
+  const adminUnreadClientMessages =
     adminMessagesData?.getAllPlatformClientMessages?.filter(
       (platformMessage: any) =>
         platformMessage.senderRole === "Client" && !platformMessage.readAt
-    ).length ?? 0;
+    ) ?? [];
+  const adminUnreadClientMessageCount = adminUnreadClientMessages.length;
+  const adminUnreadMessageSignature = adminUnreadClientMessages
+    .map((platformMessage: any) => platformMessage.id)
+    .sort()
+    .join("-");
   const showAdminMessagePopup =
     isAdminLoggedIn &&
     adminUnreadClientMessageCount > 0 &&
-    dismissedAdminMessageCount !== adminUnreadClientMessageCount;
+    dismissedAdminMessageSignature !== adminUnreadMessageSignature;
   const clientName = [user?.firstname, user?.lastname].filter(Boolean).join(" ");
   const clientLabel = clientName || user?.email || "Mon compte client";
   const visibleMainLinks = isAdminLoggedIn
@@ -119,7 +124,7 @@ export default function Header() {
             type="button"
             aria-label="Fermer l'alerte messages"
             onClick={() =>
-              setDismissedAdminMessageCount(adminUnreadClientMessageCount)
+              setDismissedAdminMessageSignature(adminUnreadMessageSignature)
             }
           >
             ×
@@ -314,13 +319,13 @@ export default function Header() {
                       href="/admin-messages"
                       onClick={() => setIsOpen(false)}
 	                    >
-	                      Messages
-	                      {adminUnreadClientMessageCount > 0 && (
-	                        <span className="message-alert-badge">
-	                          {adminUnreadClientMessageCount}
-	                        </span>
-	                      )}
-	                    </Link>
+                      Messages
+                      {adminUnreadClientMessageCount > 0 && (
+                        <span className="message-alert-badge">
+                          {adminUnreadClientMessageCount}
+                        </span>
+                      )}
+                    </Link>
                   </li>
                 )}
                 {isClientLoggedIn && (

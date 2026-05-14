@@ -1,11 +1,4 @@
-import {
-  Mutation,
-  Arg,
-  Query,
-  Ctx,
-  ObjectType,
-  Field,
-} from "type-graphql";
+import { Mutation, Arg, Query, Ctx, ObjectType, Field } from "type-graphql";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Role, User } from "../entities/User";
@@ -26,8 +19,7 @@ const buildAuthCookie = (token: string, maxAge = 60 * 60 * 24 * 7) => {
 const hashResetToken = (token: string) =>
   crypto.createHash("sha256").update(token).digest("hex");
 
-const createResetCode = () =>
-  String(crypto.randomInt(100000, 1000000));
+const createResetCode = () => String(crypto.randomInt(100000, 1000000));
 
 const buildFrontendUrl = (frontendUrl?: string | null) => {
   const fallback = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -307,8 +299,7 @@ export class UserResolver {
   ) {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await User.findOneBy({ email: normalizedEmail });
-    const successMessage =
-      "Si ce compte existe, un email de recuperation vient d'etre envoye.";
+    const successMessage = "Un email de recuperation vient d'etre envoye.";
 
     if (!user) {
       return successMessage;
@@ -340,11 +331,11 @@ export class UserResolver {
     const user = await User.findOneBy({ email: normalizedEmail });
     const successMessage =
       normalizedChannel === "sms"
-        ? "Si ce compte existe et possede un telephone, un code vient d'etre envoye par SMS."
-        : "Si ce compte existe, un code vient d'etre envoye par email.";
+        ? "Un code vient d'être envoyé par SMS."
+        : " Un code vient d'être envoyé par email.";
 
     if (!["email", "sms"].includes(normalizedChannel)) {
-      throw new Error("Choisissez une recuperation par email ou SMS.");
+      throw new Error("Choisissez une récupération par email ou SMS.");
     }
 
     if (!user) {
@@ -352,7 +343,7 @@ export class UserResolver {
     }
 
     if (normalizedChannel === "sms" && !user.phone) {
-      throw new Error("Aucun numero de telephone n'est associe a ce compte.");
+      throw new Error("Aucun numéro de téléphone n'est associe à ce compte.");
     }
 
     const code = createResetCode();
@@ -383,7 +374,9 @@ export class UserResolver {
     const trimmedPassword = password.trim();
 
     if (trimmedPassword.length < 6) {
-      throw new Error("Le nouveau mot de passe doit contenir au moins 6 caracteres.");
+      throw new Error(
+        "Le nouveau mot de passe doit contenir au moins 6 caractères."
+      );
     }
 
     const user = await User.findOneBy({
@@ -404,7 +397,7 @@ export class UserResolver {
     user.passwordResetTokenExpiresAt = null;
     await user.save();
 
-    return "Mot de passe mis a jour. Vous pouvez vous connecter.";
+    return "Mot de passe mis à jour. Vous pouvez vous connecter.";
   }
 
   @Mutation(() => String)
@@ -422,7 +415,9 @@ export class UserResolver {
     }
 
     if (trimmedPassword.length < 6) {
-      throw new Error("Le nouveau mot de passe doit contenir au moins 6 caracteres.");
+      throw new Error(
+        "Le nouveau mot de passe doit contenir au moins 6 caractères."
+      );
     }
 
     const user = await User.findOneBy({
@@ -435,7 +430,7 @@ export class UserResolver {
       !user.passwordResetCodeExpiresAt ||
       user.passwordResetCodeExpiresAt.getTime() < Date.now()
     ) {
-      throw new Error("Code de recuperation invalide ou expire.");
+      throw new Error("Code de récupération invalide ou expire.");
     }
 
     user.hashedPassword = await bcrypt.hash(trimmedPassword, 10);
@@ -445,7 +440,7 @@ export class UserResolver {
     user.passwordResetCodeExpiresAt = null;
     await user.save();
 
-    return "Mot de passe mis a jour. Vous pouvez vous connecter.";
+    return "Mot de passe mis à jour. Vous pouvez vous connecter.";
   }
 
   // =========================

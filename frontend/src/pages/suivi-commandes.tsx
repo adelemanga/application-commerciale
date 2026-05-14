@@ -25,7 +25,9 @@ const groupArticlesByProduct = (articles: any[] = []) =>
       imgUrl: getProductImage(article.product),
     };
     const productKey = product.id ?? product.name ?? article.id;
-    const existingGroup = groups.find((group) => group.productKey === productKey);
+    const existingGroup = groups.find(
+      (group) => group.productKey === productKey
+    );
 
     if (existingGroup) {
       existingGroup.quantity += 1;
@@ -87,42 +89,62 @@ const formatDate = (value?: string) =>
 
 const statusLabels: Record<string, string> = {
   pending: "Panier en cours",
-  submitted: "Commande recue",
-  validated: "Validee par BeautyPlace",
-  ongoing: "Colis en preparation",
-  shipped: "Colis envoye",
-  ended: "Colis livre / commande terminee",
+  submitted: "Commande reçue",
+  validated: "Validée par BeautyPlace",
+  ongoing: "Colis en préparation",
+  shipped: "Colis envoyé",
+  ended: "Colis livre / commande terminée",
 };
 
 const paymentLabels: Record<string, string> = {
-  paid: "Payee",
+  paid: "Payée",
   pending: "A payer",
 };
 
 const deliveryLabels: Record<string, string> = {
-  home: "Livraison a domicile",
+  home: "Livraison à domicile",
   relay: "Point relais",
   store: "Retrait magasin",
 };
 
 const getOrderDisplayType = (reservation: any) => {
   if (reservation?.status === "pending") return "Panier non valide";
-  if (reservation?.paymentStatus === "paid" && reservation?.deliveryMethod === "home") {
-    return "Commande a livrer";
+  if (
+    reservation?.paymentStatus === "paid" &&
+    reservation?.deliveryMethod === "home"
+  ) {
+    return "Commande à livrer";
   }
-  if (reservation?.paymentStatus === "paid" && reservation?.deliveryMethod === "relay") {
+  if (
+    reservation?.paymentStatus === "paid" &&
+    reservation?.deliveryMethod === "relay"
+  ) {
     return "Commande en point relais";
   }
-  if (reservation?.paymentStatus === "paid" && reservation?.deliveryMethod === "store") {
-    return "Commande a retirer";
+  if (
+    reservation?.paymentStatus === "paid" &&
+    reservation?.deliveryMethod === "store"
+  ) {
+    return "Commande à retirer";
   }
   return "Commande en cours";
 };
 
+const requiresTrackingForInvoice = (reservation: any) =>
+  reservation?.paymentMethod === "card" &&
+  reservation?.paymentStatus === "paid" &&
+  reservation?.deliveryMethod !== "store";
+
+const canShowClientInvoice = (reservation: any) =>
+  !requiresTrackingForInvoice(reservation) ||
+  Boolean(
+    reservation?.shippingCarrier?.trim() && reservation?.trackingNumber?.trim()
+  );
+
 const trackingSteps = [
   {
     status: "submitted",
-    label: "Commande recue",
+    label: "Commande reçue",
     detail: "Votre commande est enregistree et transmise a BeautyPlace.",
   },
   {
@@ -137,7 +159,7 @@ const trackingSteps = [
   },
   {
     status: "shipped",
-    label: "Colis envoye",
+    label: "Colis envoyé",
     detail: "Le colis est remis au transporteur avec son numero de suivi.",
   },
   {
@@ -150,7 +172,7 @@ const trackingSteps = [
 const pickupSteps = [
   {
     status: "submitted",
-    label: "Reservation recue",
+    label: "Reservation reçue",
     detail: "Votre reservation est enregistree et transmise a BeautyPlace.",
   },
   {
@@ -189,15 +211,15 @@ const getStepState = (
 
 const trackingHelp: Record<string, string> = {
   submitted:
-    "Votre commande a bien ete envoyee. Elle attend la validation de BeautyPlace.",
+    "Votre commande a bien ete envoyée. Elle attend la validation de BeautyPlace.",
   validated:
     "Votre commande est validee. BeautyPlace peut maintenant preparer le colis.",
   ongoing:
     "Votre colis est en preparation. Cette etape peut aussi correspondre a une expedition ou remise en cours selon l'organisation.",
   shipped:
-    "Votre colis a ete envoye. Utilisez le numero de suivi pour suivre son avancement chez le transporteur.",
+    "Votre colis a été envoyé. Utilisez le numero de suivi pour suivre son avancement chez le transporteur.",
   ended:
-    "Votre commande est terminee. Le colis est marque comme livre ou remis au client.",
+    "Votre commande est terminée. Le colis est marqué comme livre ou remis au client.",
 };
 
 const getTrackingUrl = (carrier?: string, trackingNumber?: string) => {
@@ -206,7 +228,10 @@ const getTrackingUrl = (carrier?: string, trackingNumber?: string) => {
   const normalizedCarrier = carrier.toLowerCase();
   const encodedNumber = encodeURIComponent(trackingNumber);
 
-  if (normalizedCarrier.includes("poste") || normalizedCarrier.includes("colissimo")) {
+  if (
+    normalizedCarrier.includes("poste") ||
+    normalizedCarrier.includes("colissimo")
+  ) {
     return `https://www.laposte.fr/outils/suivre-vos-envois?code=${encodedNumber}`;
   }
 
@@ -229,6 +254,7 @@ const sanitizePdfText = (value?: string | number | null) =>
   String(value ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/€/g, "EUR")
     .replace(/[^\x20-\x7E]/g, "")
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
@@ -253,35 +279,141 @@ const wrapPdfLine = (value: string, maxLength = 78) => {
   return lines;
 };
 
-const buildPdfDocument = (lines: string[]) => {
-  const pageHeight = 842;
-  const lineHeight = 18;
-  let y = 800;
-  const content = [
-    "BT",
-    "/F1 20 Tf",
-    "1 0 0 1 50 800 Tm",
-    `(Facture Beauty Place) Tj`,
-    "/F1 11 Tf",
-  ];
+type InvoicePdfProduct = {
+  name: string;
+  quantity: number;
+  total: string;
+};
 
-  lines.forEach((line) => {
-    wrapPdfLine(line).forEach((wrappedLine) => {
-      y -= lineHeight;
-      if (y < 52) return;
-      content.push(`1 0 0 1 50 ${y} Tm`);
-      content.push(`(${sanitizePdfText(wrappedLine)}) Tj`);
-    });
+type InvoicePdfData = {
+  id: string | number;
+  date: string;
+  clientName: string;
+  email: string;
+  phone: string;
+  address: string;
+  status: string;
+  payment: string;
+  deliveryMode: string;
+  deliveryDetail: string;
+  carrier: string;
+  trackingNumber: string;
+  products: InvoicePdfProduct[];
+  total: string;
+};
+
+const buildPdfDocument = (invoice: InvoicePdfData) => {
+  const pageHeight = 842;
+  const content: string[] = [];
+  const rect = (
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string
+  ) => {
+    content.push(`q ${color} rg ${x} ${y} ${width} ${height} re f Q`);
+  };
+  const text = (
+    value: string,
+    x: number,
+    y: number,
+    size = 10,
+    color = "0.20 0.16 0.14",
+    font = "F1"
+  ) => {
+    content.push(
+      `BT /${font} ${size} Tf ${color} rg 1 0 0 1 ${x} ${y} Tm (${sanitizePdfText(
+        value
+      )}) Tj ET`
+    );
+  };
+  const multiline = (
+    value: string,
+    x: number,
+    y: number,
+    maxLength = 48,
+    size = 9,
+    color = "0.25 0.22 0.20"
+  ) => {
+    wrapPdfLine(value, maxLength)
+      .slice(0, 3)
+      .forEach((line, index) => text(line, x, y - index * 12, size, color));
+  };
+
+  rect(0, 0, 595, pageHeight, "0.99 0.97 0.95");
+  rect(0, 734, 595, 108, "0.36 0.18 0.31");
+  rect(0, 728, 595, 6, "0.89 0.67 0.75");
+
+  text("Beauty Place", 42, 795, 25, "1 1 1", "F2");
+  text("Facture client", 42, 772, 11, "0.98 0.88 0.82");
+  text(`Recu #${invoice.id}`, 435, 795, 15, "1 1 1", "F2");
+  text(`Commande du ${invoice.date}`, 435, 774, 9, "0.98 0.88 0.82");
+
+  rect(42, 612, 511, 92, "1 1 1");
+  rect(42, 701, 511, 3, "0.89 0.67 0.75");
+  text("Client", 62, 678, 11, "0.36 0.18 0.31", "F2");
+  text(
+    invoice.clientName || invoice.email,
+    62,
+    660,
+    10,
+    "0.13 0.11 0.10",
+    "F2"
+  );
+  text(invoice.email, 62, 644, 9);
+  text(invoice.phone, 62, 629, 9);
+  multiline(invoice.address, 62, 615, 44, 8);
+
+  text("Commande", 330, 678, 11, "0.36 0.18 0.31", "F2");
+  text(`Statut : ${invoice.status}`, 330, 660, 9);
+  text(`Paiement : ${invoice.payment}`, 330, 645, 9);
+  text(`Mode : ${invoice.deliveryMode}`, 330, 630, 9);
+  multiline(invoice.deliveryDetail, 330, 615, 42, 8);
+
+  text("Produits commandés", 42, 570, 14, "0.36 0.18 0.31", "F2");
+  rect(42, 540, 511, 24, "0.36 0.18 0.31");
+  text("Produit", 58, 548, 9, "1 1 1", "F2");
+  text("Quantite", 382, 548, 9, "1 1 1", "F2");
+  text("Total", 480, 548, 9, "1 1 1", "F2");
+
+  let rowY = 513;
+  invoice.products.forEach((product, index) => {
+    if (rowY < 210) return;
+    rect(42, rowY - 8, 511, 30, index % 2 === 0 ? "1 1 1" : "0.98 0.94 0.92");
+    multiline(product.name, 58, rowY + 5, 54, 9, "0.14 0.12 0.11");
+    text(`x${product.quantity}`, 392, rowY + 2, 10, "0.14 0.12 0.11", "F2");
+    text(product.total, 480, rowY + 2, 10, "0.14 0.12 0.11", "F2");
+    rowY -= 34;
   });
 
-  content.push("ET");
+  rect(348, rowY - 34, 205, 45, "0.36 0.18 0.31");
+  text("Total facture", 368, rowY - 7, 10, "0.98 0.88 0.82");
+  text(invoice.total, 468, rowY - 10, 16, "1 1 1", "F2");
+
+  const shippingY = rowY - 90;
+  rect(42, shippingY, 511, 52, "1 1 1");
+  text("Livraison et suivi", 62, shippingY + 32, 11, "0.36 0.18 0.31", "F2");
+  text(`Transporteur : ${invoice.carrier}`, 62, shippingY + 15, 9);
+  text(`Numero de suivi : ${invoice.trackingNumber}`, 330, shippingY + 15, 9);
+
+  rect(42, 52, 511, 58, "0.98 0.94 0.92");
+  text("Merci pour votre commande.", 62, 86, 13, "0.36 0.18 0.31", "F2");
+  text(
+    "Beauty Place reste disponible pour toute question depuis votre espace client.",
+    62,
+    68,
+    9
+  );
+
   const stream = content.join("\n");
   const objects = [
     "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
     "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 ${pageHeight}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n`,
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 ${pageHeight}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>\nendobj\n`,
     `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`,
     "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+    "6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
   ];
   let pdf = "%PDF-1.4\n";
   const offsets = [0];
@@ -297,14 +429,18 @@ const buildPdfDocument = (lines: string[]) => {
   offsets.slice(1).forEach((offset) => {
     pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
   });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+  pdf += `trailer\n<< /Size ${
+    objects.length + 1
+  } /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
 
   return pdf;
 };
 
-const buildPdfDataUrl = (lines: string[]) => {
-  if (typeof window === "undefined" || !lines.length) return "";
-  return `data:application/pdf;base64,${window.btoa(buildPdfDocument(lines))}`;
+const buildInvoicePdfDataUrl = (invoice?: InvoicePdfData) => {
+  if (typeof window === "undefined" || !invoice) return "";
+  return `data:application/pdf;base64,${window.btoa(
+    buildPdfDocument(invoice)
+  )}`;
 };
 
 function TrackingContent() {
@@ -377,7 +513,14 @@ function TrackingContent() {
     Boolean(reservation?.stripeSessionId);
   const deliveryMethod = reservation?.deliveryMethod || "home";
   const isStorePickup = deliveryMethod === "store";
-  const deliveryLabel = deliveryLabels[deliveryMethod] || "Livraison a domicile";
+  const requiresShippingDetails = isOnlinePaid && !isStorePickup;
+  const hasCompleteShippingDetails = reservation
+    ? canShowClientInvoice(reservation)
+    : false;
+  const canDisplayInvoice =
+    Boolean(reservation && selectedOrder) && hasCompleteShippingDetails;
+  const deliveryLabel =
+    deliveryLabels[deliveryMethod] || "Livraison a domicile";
   const deliveryDetail =
     deliveryMethod === "store"
       ? reservation?.pickupDate
@@ -387,9 +530,13 @@ function TrackingContent() {
         : "Date de retrait a confirmer"
       : deliveryMethod === "relay"
       ? `${reservation?.relayName || "Point relais a confirmer"} - ${
-          reservation?.relayAddress || reservation?.customerAddress || "adresse a confirmer"
+          reservation?.relayAddress ||
+          reservation?.customerAddress ||
+          "adresse a confirmer"
         }`
-      : reservation?.customerAddress || userData?.whoAmI?.address || "Adresse a confirmer";
+      : reservation?.customerAddress ||
+        userData?.whoAmI?.address ||
+        "Adresse a confirmer";
   const activeSteps = isOnlinePaid ? trackingSteps : pickupSteps;
   const activeStatusOrder = isOnlinePaid ? statusOrder : pickupStatusOrder;
   const currentStatusLabel = isOnlinePaid
@@ -399,54 +546,50 @@ function TrackingContent() {
     : reservation?.status === "ended"
     ? "Commande retiree sur place"
     : statusLabels[reservation?.status] ?? reservation?.status;
-  const clientName = [
-    userData?.whoAmI?.firstname,
-    userData?.whoAmI?.lastname,
-  ]
+  const clientName = [userData?.whoAmI?.firstname, userData?.whoAmI?.lastname]
     .filter(Boolean)
     .join(" ");
 
-  const invoiceLines =
-    reservation && selectedOrder
-      ? [
-      `Recu #${reservation.id}`,
-      `Commande du ${formatDate(reservation.createdAt)}`,
-      "",
-      `Client : ${clientName || userData?.whoAmI?.email || ""}`,
-      `Email : ${userData?.whoAmI?.email || ""}`,
-      `Telephone : ${reservation.customerPhone || userData?.whoAmI?.phone || "Non renseigne"}`,
-      `Adresse : ${reservation.customerAddress || userData?.whoAmI?.address || "Non renseignee"}`,
-      "",
-      `Statut : ${statusLabels[reservation.status] ?? reservation.status}`,
-      `Paiement : ${
-        paymentLabels[reservation.paymentStatus] ?? reservation.paymentStatus
-      }`,
-      `Mode : ${deliveryLabel}`,
-      `Detail : ${deliveryDetail}`,
-      isOnlinePaid && !isStorePickup
-        ? `Transporteur : ${reservation.shippingCarrier || "A definir"}`
-        : "Transporteur : non concerne",
-      isOnlinePaid && !isStorePickup
-        ? `Numero de suivi : ${reservation.trackingNumber || "A venir"}`
-        : "Expedition : retrait en magasin",
-      "",
-      "Produits commandes :",
-      ...productLines.map(
-        (line) =>
-          `- ${line.product.name} x${line.quantity} : ${formatPrice(line.total)}`
-      ),
-      "",
-      `Total facture : ${formatPrice(selectedOrder.totalPrice)}`,
-      "",
-      "Beauty Place vous remercie pour votre commande.",
-        ]
-      : [];
+  const invoiceData: InvoicePdfData | undefined =
+    reservation && selectedOrder && canDisplayInvoice
+      ? {
+          id: reservation.id,
+          date: formatDate(reservation.createdAt),
+          clientName: clientName || userData?.whoAmI?.email || "",
+          email: userData?.whoAmI?.email || "",
+          phone:
+            reservation.customerPhone ||
+            userData?.whoAmI?.phone ||
+            "Non renseigne",
+          address:
+            reservation.customerAddress ||
+            userData?.whoAmI?.address ||
+            "Non renseignee",
+          status: statusLabels[reservation.status] ?? reservation.status,
+          payment:
+            paymentLabels[reservation.paymentStatus] ??
+            reservation.paymentStatus,
+          deliveryMode: deliveryLabel,
+          deliveryDetail,
+          carrier: requiresShippingDetails
+            ? reservation.shippingCarrier || "Transporteur en attente"
+            : "Non concerne",
+          trackingNumber: requiresShippingDetails
+            ? reservation.trackingNumber || "A venir"
+            : "Retrait en magasin",
+          products: productLines.map((line) => ({
+            name: line.product.name,
+            quantity: line.quantity,
+            total: formatPrice(line.total),
+          })),
+          total: formatPrice(selectedOrder.totalPrice),
+        }
+      : undefined;
   const pdfFilename = reservation
     ? `facture-beauty-place-${reservation.id}.pdf`
     : "facture-beauty-place.pdf";
-  const pdfDataUrl = buildPdfDataUrl(invoiceLines);
-  const canConfirmReceived =
-    isOnlinePaid && reservation?.status === "shipped";
+  const pdfDataUrl = buildInvoicePdfDataUrl(invoiceData);
+  const canConfirmReceived = isOnlinePaid && reservation?.status === "shipped";
 
   const markAsReceived = async () => {
     if (!reservation) return;
@@ -491,8 +634,8 @@ function TrackingContent() {
         <p className="shop-kicker">Suivi et facture</p>
         <h1>Suivi de commande</h1>
         <p>
-          Retrouvez le traitement de votre commande, le paiement, les produits et
-          votre recu de facturation.
+          Retrouvez le traitement de votre commande, le paiement, les produits
+          et votre reçue de facturation.
         </p>
         {isLoggedIn && (
           <p className="tracking-account-note">
@@ -505,7 +648,9 @@ function TrackingContent() {
         <p className="shop-message">Chargement de vos commandes...</p>
       )}
       {error && (
-        <p className="shop-message">Impossible de charger le suivi de commande.</p>
+        <p className="shop-message">
+          Impossible de charger le suivi de commande.
+        </p>
       )}
       {clientNotice && <p className="shop-message">{clientNotice}</p>}
 
@@ -522,49 +667,72 @@ function TrackingContent() {
         <section className="tracking-layout">
           <aside className="tracking-list">
             <h2>Mes commandes</h2>
-            {trackedOrders.map((item: any) => (
-              <div className="tracking-order-card" key={item.reservation.id}>
-                <button
-                  type="button"
-                  className={
-                    item.reservation.id === reservation.id
-                      ? "tracking-order active"
-                      : "tracking-order"
-                  }
-                  onClick={() => setActiveOrderId(String(item.reservation.id))}
-                >
-                  <span>Commande #{item.reservation.id}</span>
-                  <small>{formatDate(item.reservation.createdAt)}</small>
-                  <small>{getOrderDisplayType(item.reservation)}</small>
-                  <small>
-                    {statusLabels[item.reservation.status] || item.reservation.status}
-                  </small>
-                  <strong>{formatPrice(item.totalPrice)}</strong>
-                </button>
-                <button
-                  type="button"
-                  className="tracking-delete-button"
-                  disabled={deletingInvoice}
-                  onClick={() => deleteInvoiceFromClientSpace(item.reservation.id)}
-                >
-                  Supprimer cette facture
-                </button>
-              </div>
-            ))}
+            {trackedOrders.map((item: any) => {
+              const itemHasInvoice = canShowClientInvoice(item.reservation);
+
+              return (
+                <div className="tracking-order-card" key={item.reservation.id}>
+                  <button
+                    type="button"
+                    className={
+                      item.reservation.id === reservation.id
+                        ? "tracking-order active"
+                        : "tracking-order"
+                    }
+                    onClick={() =>
+                      setActiveOrderId(String(item.reservation.id))
+                    }
+                  >
+                    <span>Commande #{item.reservation.id}</span>
+                    <small>{formatDate(item.reservation.createdAt)}</small>
+                    <small>{getOrderDisplayType(item.reservation)}</small>
+                    <small>
+                      {statusLabels[item.reservation.status] ||
+                        item.reservation.status}
+                    </small>
+                    <strong>{formatPrice(item.totalPrice)}</strong>
+                  </button>
+                  {itemHasInvoice && (
+                    <button
+                      type="button"
+                      className="tracking-delete-button"
+                      disabled={deletingInvoice}
+                      onClick={() =>
+                        deleteInvoiceFromClientSpace(item.reservation.id)
+                      }
+                    >
+                      Supprimer cette facture
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </aside>
 
           <article className="receipt-card">
             <div className="receipt-header">
               <div>
-                <p className="shop-kicker">Facture Beauty Place</p>
-                <h2>Recu #{reservation.id}</h2>
+                <p className="shop-kicker">
+                  {canDisplayInvoice
+                    ? "Facture Beauty Place"
+                    : "Suivi Beauty Place"}
+                </p>
+                <h2>
+                  {canDisplayInvoice
+                    ? `Reçu #${reservation.id}`
+                    : `Commande #${reservation.id}`}
+                </h2>
                 <p>Commande du {formatDate(reservation.createdAt)}</p>
               </div>
               <div className="receipt-actions">
-                {pdfDataUrl && (
+                {canDisplayInvoice && pdfDataUrl ? (
                   <a href={pdfDataUrl} download={pdfFilename}>
-                    Telecharger PDF
+                    Telecharger votre facture
                   </a>
+                ) : (
+                  <button type="button" disabled>
+                    Facture en attente
+                  </button>
                 )}
                 <button
                   type="button"
@@ -572,13 +740,28 @@ function TrackingContent() {
                   disabled={deletingInvoice}
                   onClick={() => deleteInvoiceFromClientSpace()}
                 >
-                  {deletingInvoice ? "Suppression..." : "Supprimer la facture"}
+                  {deletingInvoice
+                    ? "Suppression..."
+                    : canDisplayInvoice
+                    ? "Supprimer la facture"
+                    : "Supprimer de mon espace client"}
                 </button>
-                <button type="button" onClick={() => window.print()}>
+                <button
+                  type="button"
+                  disabled={!canDisplayInvoice}
+                  onClick={() => window.print()}
+                >
                   Imprimer
                 </button>
               </div>
             </div>
+
+            {!canDisplayInvoice && (
+              <p className="receipt-waiting-note">
+                Facture disponible après ajout du transporteur et du numéro de
+                suivi par BeautyPlace.
+              </p>
+            )}
 
             <div className="tracking-steps" aria-label="Etapes du colis">
               {activeSteps.map((step) => (
@@ -597,11 +780,13 @@ function TrackingContent() {
             </div>
 
             <div className="parcel-status-card">
-              <span>{isStorePickup ? "Retrait magasin" : "Suivi colis actuel"}</span>
+              <span>
+                {isStorePickup ? "Retrait magasin" : "Suivi colis actuel"}
+              </span>
               <strong>{currentStatusLabel}</strong>
               <p>
                 {isStorePickup
-                  ? "Votre commande est payee et sera disponible en magasin selon le rendez-vous choisi."
+                  ? "Votre commande est payée et sera disponible en magasin selon le rendez-vous choisi."
                   : isOnlinePaid
                   ? trackingHelp[reservation.status] ||
                     "Le statut sera mis a jour lorsque BeautyPlace modifiera la commande."
@@ -614,19 +799,21 @@ function TrackingContent() {
                   disabled={confirmingReceived}
                   onClick={markAsReceived}
                 >
-                  {confirmingReceived ? "Confirmation..." : "Recu"}
+                  {confirmingReceived ? "Confirmation..." : "Reçu"}
                 </button>
               )}
             </div>
 
             {isOnlinePaid && !isStorePickup ? (
               <div className="tracking-number-card">
-                <span>Transporteur et numero</span>
-                <strong>{reservation.shippingCarrier || "Transporteur a venir"}</strong>
+                <span>Transporteur et numéro</span>
+                <strong>
+                  {reservation.shippingCarrier || "Transporteur a venir"}
+                </strong>
                 <p>
                   {reservation.trackingNumber
                     ? `Numero de suivi : ${reservation.trackingNumber}`
-                    : "Le numero de suivi apparaitra ici quand BeautyPlace aura expedie le colis."}
+                    : "Le numéro de suivi apparaîtra ici quand BeautyPlace aura expedié le colis."}
                 </p>
                 {trackingUrl && (
                   <a href={trackingUrl} target="_blank" rel="noreferrer">
@@ -637,10 +824,10 @@ function TrackingContent() {
             ) : (
               <div className="tracking-number-card">
                 <span>{deliveryLabel}</span>
-                <strong>{isStorePickup ? "Commande payee" : deliveryLabel}</strong>
-                <p>
-                  {deliveryDetail}
-                </p>
+                <strong>
+                  {isStorePickup ? "Commande payée" : deliveryLabel}
+                </strong>
+                <p>{deliveryDetail}</p>
               </div>
             )}
 
@@ -652,7 +839,9 @@ function TrackingContent() {
               </div>
               <div>
                 <span>{deliveryLabel}</span>
-                <strong>{reservation.customerPhone || userData?.whoAmI?.phone}</strong>
+                <strong>
+                  {reservation.customerPhone || userData?.whoAmI?.phone}
+                </strong>
                 <p>{deliveryDetail}</p>
               </div>
               <div>
@@ -668,7 +857,7 @@ function TrackingContent() {
                 <span>{isStorePickup ? "Retrait" : "Expedition"}</span>
                 <strong>
                   {isOnlinePaid && !isStorePickup
-                    ? reservation.shippingCarrier || "A definir"
+                    ? reservation.shippingCarrier || "Transporteur en attente"
                     : deliveryLabel}
                 </strong>
                 <p>
@@ -690,30 +879,40 @@ function TrackingContent() {
                     }}
                   />
                   <span>{line.product.name}</span>
-                  <span className="order-product-quantity">x{line.quantity}</span>
+                  <span className="order-product-quantity">
+                    x{line.quantity}
+                  </span>
                   <strong>{formatPrice(line.total)}</strong>
                 </div>
               ))}
             </div>
 
             <div className="receipt-total">
-              <span>Total facture</span>
+              <span>
+                {canDisplayInvoice ? "Total facture" : "Total commande"}
+              </span>
               <strong>{formatPrice(selectedOrder.totalPrice)}</strong>
             </div>
 
-            <p className="receipt-note">
-              Un email de confirmation/facturation est envoye au client lorsque
-              la commande est validee apres paiement ou envoyee a
-              BeautyPlace.
-            </p>
-
+            {canDisplayInvoice ? (
+              <p className="receipt-note">
+                Un email de confirmation/facturation est envoyé au client
+                lorsque la commande est validée apres paiement ou envoyée a
+                BeautyPlace.
+              </p>
+            ) : (
+              <p className="receipt-note">
+                La facture sera disponible lorsque BeautyPlace aura renseigné le
+                transporteur et le numero de suivi.
+              </p>
+            )}
           </article>
         </section>
       ) : (
         <section className="empty-cart-panel">
           <h2>Aucune commande disponible</h2>
           <p>
-            Vos commandes payees apparaitront ici apres confirmation du
+            Vos commandes payées apparaitront ici après confirmation du
             paiement.
           </p>
           <Link href="/produits">Voir les produits</Link>

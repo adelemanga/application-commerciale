@@ -47,10 +47,10 @@ class StripeCheckoutSession {
 
 const statusUpdateLabels: Record<ReservationStatus, string> = {
   [ReservationStatus.Pending]: "Panier en cours",
-  [ReservationStatus.Submitted]: "Commande recue",
+  [ReservationStatus.Submitted]: "Commande reçue",
   [ReservationStatus.Validated]: "Commande validee",
   [ReservationStatus.Ongoing]: "Commande en preparation",
-  [ReservationStatus.Shipped]: "Colis envoye",
+  [ReservationStatus.Shipped]: "Colis envoyé",
   [ReservationStatus.Ended]: "Commande terminee",
 };
 
@@ -95,7 +95,8 @@ const calculateReservationTotal = (reservation: Reservation) => {
     }
 
     return snapshot.reduce(
-      (sum: number, item: { price?: number }) => sum + (Number(item.price) || 0),
+      (sum: number, item: { price?: number }) =>
+        sum + (Number(item.price) || 0),
       0
     );
   } catch {
@@ -106,6 +107,59 @@ const calculateReservationTotal = (reservation: Reservation) => {
 const hasPaidOrderValue = (reservation: Reservation) =>
   reservation.articles?.some((article) => Number(article.product?.price) > 0) ||
   calculateReservationTotal(reservation) > 0;
+
+const hasConfirmedOnlinePayment = (reservation: Reservation) =>
+  reservation.paymentMethod === "card" &&
+  reservation.paymentStatus === PaymentStatus.Paid &&
+  Boolean(reservation.stripeSessionId) &&
+  Boolean(reservation.stripePaymentConfirmedAt);
+
+const verifyStripePaymentConfirmation = async (reservation: Reservation) => {
+  if (
+    reservation.stripePaymentConfirmedAt ||
+    reservation.paymentMethod !== "card" ||
+    reservation.paymentStatus !== PaymentStatus.Paid ||
+    !reservation.stripeSessionId
+  ) {
+    return reservation;
+  }
+
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!stripeSecretKey) {
+    return reservation;
+  }
+
+  try {
+    const response = await axios.get(
+      `https://api.stripe.com/v1/checkout/sessions/${reservation.stripeSessionId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+        },
+      }
+    );
+
+    if (response.data.payment_status === "paid") {
+      reservation.stripePaymentConfirmedAt = new Date(
+        response.data.created ? response.data.created * 1000 : Date.now()
+      );
+      await reservation.save();
+    }
+  } catch (error) {
+    console.warn(
+      `Impossible de verifier le paiement Stripe pour la reservation ${reservation.id}.`,
+      error
+    );
+  }
+
+  return reservation;
+};
+
+const verifyStripePaymentConfirmations = async (reservations: Reservation[]) => {
+  await Promise.all(reservations.map(verifyStripePaymentConfirmation));
+  return reservations;
+};
 
 const enrichSnapshotWithLocalProducts = async (reservation: Reservation) => {
   if (!reservation.articlesSnapshot) {
@@ -211,10 +265,7 @@ const backfillStripeArticlesSnapshot = async (reservation: Reservation) => {
           (typeof product === "string" ? undefined : product.name) ||
           "Produit BeautyPlace",
         price: unitAmount / 100,
-        imgUrl:
-          typeof product === "string"
-            ? ""
-            : product.images?.[0] || "",
+        imgUrl: typeof product === "string" ? "" : product.images?.[0] || "",
       }));
     });
 
@@ -286,12 +337,13 @@ export class ReservationResolver {
     });
 
     await backfillStripeSnapshots(reservations);
+    await verifyStripePaymentConfirmations(reservations);
 
     return reservations.filter(
       (reservation) =>
         !reservation.archivedByAdmin &&
         !reservation.removedFromAdminHistory &&
-        reservation.paymentStatus === PaymentStatus.Paid &&
+        hasConfirmedOnlinePayment(reservation) &&
         reservation.status !== ReservationStatus.Pending &&
         calculateReservationTotal(reservation) > 0
     );
@@ -307,6 +359,7 @@ export class ReservationResolver {
     });
 
     await backfillStripeSnapshots(reservations);
+    await verifyStripePaymentConfirmations(reservations);
     await normalizeEndedPaidReservations(reservations);
 
     return reservations.filter(
@@ -368,9 +421,7 @@ export class ReservationResolver {
       const normalizedEmail = context.email?.trim().toLowerCase();
       const where = [
         { user: { id: context.id } },
-        ...(normalizedEmail
-          ? [{ user: { email: normalizedEmail } }]
-          : []),
+        ...(normalizedEmail ? [{ user: { email: normalizedEmail } }] : []),
       ];
       const reservations = await Reservation.find({
         where,
@@ -379,6 +430,8 @@ export class ReservationResolver {
           createdAt: "DESC",
         },
       });
+
+      await verifyStripePaymentConfirmations(reservations);
 
       const uniqueReservations = new Map<string, Reservation>();
 
@@ -394,9 +447,14 @@ export class ReservationResolver {
 
           const totalPrice = calculateReservationTotal(reservation);
           const hasProducts =
-            reservation.articles.length > 0 || Boolean(reservation.articlesSnapshot);
+            reservation.articles.length > 0 ||
+            Boolean(reservation.articlesSnapshot);
 
-          return reservation.paymentStatus === PaymentStatus.Paid && hasProducts && totalPrice > 0;
+          return (
+            hasConfirmedOnlinePayment(reservation) &&
+            hasProducts &&
+            totalPrice > 0
+          );
         })
         .map((reservation) => {
           const totalPrice = calculateReservationTotal(reservation);
@@ -510,7 +568,7 @@ export class ReservationResolver {
       !reservation.stripeSessionId
     ) {
       throw new Error(
-        "La commande doit etre payee par Stripe avant d'etre envoyee a l'administrateur."
+        "La commande doit etre payée par Stripe avant d'etre envoyée à l'administrateur."
       );
     }
 
@@ -518,8 +576,10 @@ export class ReservationResolver {
     reservation.customerPhone = cleanCustomerPhone;
     reservation.customerAddress = customerAddress;
     reservation.paymentMethod = paymentMethod;
-    reservation.pickupDate = paymentMethod !== "card" ? cleanPickupDate : undefined;
-    reservation.pickupTime = paymentMethod !== "card" ? cleanPickupTime : undefined;
+    reservation.pickupDate =
+      paymentMethod !== "card" ? cleanPickupDate : undefined;
+    reservation.pickupTime =
+      paymentMethod !== "card" ? cleanPickupTime : undefined;
     reservation.articlesSnapshot = createArticlesSnapshot(reservation.articles);
     reservation.paymentStatus = PaymentStatus.Paid;
     await reservation.save();
@@ -533,7 +593,7 @@ export class ReservationResolver {
       await sendOrderEmails(reservation);
     } catch (error) {
       console.warn(
-        "Commande enregistree, mais email non envoye. Verifiez la configuration Gmail.",
+        "Commande enregistree, mais email non envoyé. Verifiez la configuration Gmail.",
         error
       );
     }
@@ -576,7 +636,7 @@ export class ReservationResolver {
     }
 
     if (!hasPaidOrderValue(reservation)) {
-      throw new Error("Une commande a zero euro ne peut pas etre payee.");
+      throw new Error("Une commande a zero euro ne peut pas etre payée.");
     }
 
     const cleanDeliveryMethod = deliveryMethod?.trim() || "home";
@@ -605,7 +665,10 @@ export class ReservationResolver {
       throw new Error("Choisissez une date de retrait en magasin.");
     }
 
-    if (cleanDeliveryMethod === "relay" && (!cleanRelayName || !cleanRelayAddress)) {
+    if (
+      cleanDeliveryMethod === "relay" &&
+      (!cleanRelayName || !cleanRelayAddress)
+    ) {
       throw new Error("Renseignez le point relais.");
     }
 
@@ -630,10 +693,7 @@ export class ReservationResolver {
 
     reservation.articles.forEach((article, index) => {
       params.append(`line_items[${index}][quantity]`, "1");
-      params.append(
-        `line_items[${index}][price_data][currency]`,
-        "eur"
-      );
+      params.append(`line_items[${index}][price_data][currency]`, "eur");
       params.append(
         `line_items[${index}][price_data][unit_amount]`,
         String(Math.round(article.product.price * 100))
@@ -727,8 +787,13 @@ export class ReservationResolver {
     reservation.paymentMethod = "card";
     reservation.paymentStatus = PaymentStatus.Paid;
     reservation.stripeSessionId = sessionId;
+    reservation.stripePaymentConfirmedAt = new Date(
+      response.data.created ? response.data.created * 1000 : Date.now()
+    );
     if (!reservation.articlesSnapshot) {
-      reservation.articlesSnapshot = createArticlesSnapshot(reservation.articles);
+      reservation.articlesSnapshot = createArticlesSnapshot(
+        reservation.articles
+      );
     }
     await reservation.save();
 
@@ -739,7 +804,7 @@ export class ReservationResolver {
         await reservation.save();
       } catch (error) {
         console.warn(
-          "Commande payee, mais email non envoye. Verifiez la configuration Gmail.",
+          "Commande payée, mais email non envoye. Verifiez la configuration Gmail.",
           error
         );
       }
@@ -784,18 +849,38 @@ export class ReservationResolver {
       throw new Error("Reservation not found");
     }
 
-    if (!Object.values(ReservationStatus).includes(status as ReservationStatus)) {
+    if (
+      !Object.values(ReservationStatus).includes(status as ReservationStatus)
+    ) {
       throw new Error("Invalid reservation status");
     }
 
-    if (!Object.values(PaymentStatus).includes(paymentStatus as PaymentStatus)) {
+    if (
+      !Object.values(PaymentStatus).includes(paymentStatus as PaymentStatus)
+    ) {
       throw new Error("Invalid payment status");
+    }
+
+    await verifyStripePaymentConfirmation(reservation);
+
+    if (
+      (paymentStatus as PaymentStatus) === PaymentStatus.Paid &&
+      !hasConfirmedOnlinePayment(reservation)
+    ) {
+      throw new Error(
+        "Paiement carte non confirme par Stripe. Cette commande ne peut pas etre marquee payee."
+      );
     }
 
     const isOnlinePaid =
       reservation.paymentMethod === "card" &&
       (paymentStatus as PaymentStatus) === PaymentStatus.Paid &&
-      Boolean(reservation.stripeSessionId);
+      Boolean(reservation.stripeSessionId) &&
+      Boolean(reservation.stripePaymentConfirmedAt);
+    const isShippableDelivery =
+      isOnlinePaid && reservation.deliveryMethod !== "store";
+    const cleanShippingCarrier = shippingCarrier?.trim() || "";
+    const cleanTrackingNumber = trackingNumber?.trim() || "";
 
     const nextStatus =
       !isOnlinePaid && (paymentStatus as PaymentStatus) === PaymentStatus.Paid
@@ -804,7 +889,25 @@ export class ReservationResolver {
 
     if (nextStatus === ReservationStatus.Shipped && !isOnlinePaid) {
       throw new Error(
-        "Seules les commandes payees en ligne peuvent etre marquees comme colis envoye."
+        "Seules les commandes payées en ligne peuvent être marquees comme colis envoyé."
+      );
+    }
+
+    if (isShippableDelivery && !cleanShippingCarrier) {
+      throw new Error(
+        "Choisissez un transporteur avant d'enregistrer cette commande."
+      );
+    }
+
+    if (
+      isShippableDelivery &&
+      [ReservationStatus.Shipped, ReservationStatus.Ended].includes(
+        nextStatus
+      ) &&
+      !cleanTrackingNumber
+    ) {
+      throw new Error(
+        "Renseignez le numero de suivi avant d'enregistrer une commande envoyée."
       );
     }
 
@@ -819,10 +922,16 @@ export class ReservationResolver {
 
     reservation.status = nextStatus;
     reservation.paymentStatus = finalPaymentStatus;
-    reservation.shippingCarrier = isOnlinePaid ? shippingCarrier?.trim() || null : null;
-    reservation.trackingNumber = isOnlinePaid ? trackingNumber?.trim() || null : null;
+    reservation.shippingCarrier = isShippableDelivery
+      ? cleanShippingCarrier
+      : null;
+    reservation.trackingNumber = isShippableDelivery
+      ? cleanTrackingNumber || null
+      : null;
     if (!reservation.articlesSnapshot) {
-      reservation.articlesSnapshot = createArticlesSnapshot(reservation.articles);
+      reservation.articlesSnapshot = createArticlesSnapshot(
+        reservation.articles
+      );
     }
     await reservation.save();
 
@@ -835,15 +944,19 @@ export class ReservationResolver {
     if (hasOrderUpdate && reservation.user) {
       const statusLabel =
         statusUpdateLabels[reservation.status] || reservation.status;
+      const trackingChanged =
+        previousCarrier !== reservation.shippingCarrier ||
+        previousTrackingNumber !== reservation.trackingNumber;
       const trackingLine = reservation.trackingNumber
-        ? ` Transporteur : ${reservation.shippingCarrier || "a definir"}, suivi : ${
-            reservation.trackingNumber
-          }.`
+        ? ` Transporteur : ${reservation.shippingCarrier}, suivi : ${reservation.trackingNumber}.`
         : "";
+      const notificationPrefix = trackingChanged
+        ? `Mise a jour du suivi de votre commande #${reservation.id}`
+        : `Avancement de votre commande #${reservation.id}`;
       const platformMessage = ClientMessage.create({
         client: reservation.user,
         senderRole: "Admin",
-        message: `Avancement de votre commande #${reservation.id} : ${statusLabel}.${trackingLine}`,
+        message: `${notificationPrefix} : ${statusLabel}.${trackingLine}`,
         readAt: undefined,
       });
 
@@ -898,11 +1011,15 @@ export class ReservationResolver {
     }
 
     if (reservation.paymentMethod !== "card" || !reservation.stripeSessionId) {
-      throw new Error("Seuls les colis envoyes peuvent etre confirmes comme recus.");
+      throw new Error(
+        "Seuls les colis envoyés peuvent etre confirmes comme recus."
+      );
     }
 
     if (reservation.status !== ReservationStatus.Shipped) {
-      throw new Error("Le colis doit etre marque comme envoye avant confirmation.");
+      throw new Error(
+        "Le colis doit etre marque comme envoyé avant confirmation."
+      );
     }
 
     reservation.status = ReservationStatus.Ended;
@@ -982,7 +1099,8 @@ export class ReservationResolver {
     }
 
     const isTreatedOrder =
-      reservation.archivedByAdmin || reservation.status === ReservationStatus.Ended;
+      reservation.archivedByAdmin ||
+      reservation.status === ReservationStatus.Ended;
 
     if (!isTreatedOrder) {
       throw new Error(
@@ -1011,7 +1129,7 @@ export class ReservationResolver {
     }
 
     if (reservation.paymentStatus !== PaymentStatus.Paid) {
-      throw new Error("Seules les commandes payees peuvent etre restaurees.");
+      throw new Error("Seules les commandes payées peuvent être restaurées.");
     }
 
     reservation.archivedByAdmin = false;

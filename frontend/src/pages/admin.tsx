@@ -78,7 +78,7 @@ const formatPrice = (price?: number) =>
 
 const statusLabels: Record<string, string> = {
   pending: "booking",
-  submitted: "commande recue",
+  submitted: "commande reçue",
   validated: "validee",
   ongoing: "preparation",
   shipped: "en cours de livraison",
@@ -100,7 +100,9 @@ const groupArticlesByProduct = (articles: any[] = []) =>
   articles.reduce((groups: any[], article: any) => {
     const product = article.product ?? {};
     const productKey = product.id ?? product.name ?? article.id;
-    const existingGroup = groups.find((group) => group.productKey === productKey);
+    const existingGroup = groups.find(
+      (group) => group.productKey === productKey
+    );
 
     if (existingGroup) {
       existingGroup.quantity += 1;
@@ -170,14 +172,16 @@ function AdminContent() {
   } | null>(null);
   const [imageInputKey, setImageInputKey] = useState(0);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
-  const [orderDrafts, setOrderDrafts] = useState<Record<string, OrderDraft>>({});
+  const [orderDrafts, setOrderDrafts] = useState<Record<string, OrderDraft>>(
+    {}
+  );
   const [orderFeedbacks, setOrderFeedbacks] = useState<
     Record<string, { type: "success" | "error"; message: string }>
   >({});
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const [updatingStockProductId, setUpdatingStockProductId] = useState<string | null>(
-    null
-  );
+  const [updatingStockProductId, setUpdatingStockProductId] = useState<
+    string | null
+  >(null);
   const productFormRef = useRef<HTMLFormElement | null>(null);
   const { data, loading, error } = useQuery(GET_ALL_PRODUCTS);
   const {
@@ -187,9 +191,12 @@ function AdminContent() {
   } = useQuery(GET_ALL_RESERVATIONS, {
     fetchPolicy: "network-only",
   });
-  const [createProduct, { loading: creating }] = useMutation(CREATE_NEW_PRODUCT, {
-    refetchQueries: [{ query: GET_ALL_PRODUCTS }],
-  });
+  const [createProduct, { loading: creating }] = useMutation(
+    CREATE_NEW_PRODUCT,
+    {
+      refetchQueries: [{ query: GET_ALL_PRODUCTS }],
+    }
+  );
   const [createArticle] = useMutation(CREATE_NEW_ARTICLE, {
     refetchQueries: [{ query: GET_ALL_PRODUCTS }],
   });
@@ -205,12 +212,10 @@ function AdminContent() {
   const [updateReservationAdmin] = useMutation(UPDATE_RESERVATION_ADMIN, {
     refetchQueries: [{ query: GET_ALL_RESERVATIONS }],
   });
-  const [deleteReservationAdmin, { loading: deletingReservation }] = useMutation(
-    DELETE_RESERVATION_ADMIN,
-    {
+  const [deleteReservationAdmin, { loading: deletingReservation }] =
+    useMutation(DELETE_RESERVATION_ADMIN, {
       refetchQueries: [{ query: GET_ALL_RESERVATIONS }],
-    }
-  );
+    });
 
   const products = useMemo<ProductWithArticles[]>(
     () => data?.getAllProducts ?? [],
@@ -227,7 +232,10 @@ function AdminContent() {
 
       return (
         reservation.status !== "ended" &&
+        reservation.paymentMethod === "card" &&
         reservation.paymentStatus === "paid" &&
+        Boolean(reservation.stripeSessionId) &&
+        Boolean(reservation.stripePaymentConfirmedAt) &&
         orderedArticles.length > 0 &&
         total > 0
       );
@@ -246,10 +254,7 @@ function AdminContent() {
     });
   }, [products]);
 
-  const handleChange = (
-    field: keyof ProductForm,
-    value: string
-  ) => {
+  const handleChange = (field: keyof ProductForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
@@ -301,7 +306,10 @@ function AdminContent() {
       return "Ajoutez le stock souhaite.";
     }
 
-    if (Number(form.stock) < 0 || (!editingProductId && Number(form.stock) < 1)) {
+    if (
+      Number(form.stock) < 0 ||
+      (!editingProductId && Number(form.stock) < 1)
+    ) {
       return editingProductId
         ? "Le stock ne peut pas etre negatif."
         : "Le stock doit etre au moins de 1 pour un nouveau produit.";
@@ -376,7 +384,9 @@ function AdminContent() {
       resetProductForm();
       setNotice("Produit ajoute avec son stock.");
     } catch {
-      setNotice("Impossible d'enregistrer le produit. Verifiez vos droits admin.");
+      setNotice(
+        "Impossible d'enregistrer le produit. Verifiez vos droits admin."
+      );
     }
   };
 
@@ -441,7 +451,10 @@ function AdminContent() {
         },
       });
       setNotice(`Stock de ${product.name} mis a jour a ${quantity}.`);
-      setStockInputs((current) => ({ ...current, [product.id]: String(quantity) }));
+      setStockInputs((current) => ({
+        ...current,
+        [product.id]: String(quantity),
+      }));
     } catch {
       setNotice(
         "Impossible de baisser ce stock : certaines unites sont deja dans des commandes."
@@ -475,6 +488,7 @@ function AdminContent() {
     reservationId: string,
     status: string,
     paymentStatus: string,
+    requiresShippingCarrier = false,
     shippingCarrier = "",
     trackingNumber = ""
   ) => {
@@ -484,6 +498,39 @@ function AdminContent() {
       delete next[reservationId];
       return next;
     });
+
+    if (requiresShippingCarrier && !shippingCarrier.trim()) {
+      const message =
+        "Choisissez un transporteur avant d'enregistrer cette commande.";
+      setNotice(message);
+      setOrderFeedbacks((current) => ({
+        ...current,
+        [reservationId]: {
+          type: "error",
+          message,
+        },
+      }));
+      return;
+    }
+
+    if (
+      requiresShippingCarrier &&
+      ["shipped", "ended"].includes(status) &&
+      !trackingNumber.trim()
+    ) {
+      const message =
+        "Renseignez le numero de suivi avant d'enregistrer une commande envoyée.";
+      setNotice(message);
+      setOrderFeedbacks((current) => ({
+        ...current,
+        [reservationId]: {
+          type: "error",
+          message,
+        },
+      }));
+      return;
+    }
+
     setUpdatingOrderId(reservationId);
     try {
       await updateReservationAdmin({
@@ -500,7 +547,7 @@ function AdminContent() {
         ...current,
         [reservationId]: {
           type: "success",
-          message: "Modifications enregistrees avec succes.",
+          message: "Modifications enregistrées avec succès.",
         },
       }));
       setOrderDrafts((currentDrafts) => {
@@ -576,7 +623,7 @@ function AdminContent() {
         <p className="shop-kicker">Administration</p>
         <h1>Interface administrateur</h1>
         <p>
-          Retrouvez les reservations clients, les produits commandes, les prix
+          Retrouvez les reservations clients, les produits commandés, les prix
           et la gestion du stock au meme endroit.
         </p>
         <div className="admin-shortcuts">
@@ -591,7 +638,11 @@ function AdminContent() {
 
       {notice && <p className="shop-message">{notice}</p>}
       {formErrorPopup && (
-        <div className="admin-popup-overlay" role="alertdialog" aria-modal="true">
+        <div
+          className="admin-popup-overlay"
+          role="alertdialog"
+          aria-modal="true"
+        >
           <div className="admin-popup">
             <p className="shop-kicker">Formulaire incomplet</p>
             <h2>{formErrorPopup.title}</h2>
@@ -620,18 +671,22 @@ function AdminContent() {
           {reservations.map((reservation: any) => {
             const orderedArticles = getOrderedArticles(reservation);
             const total = orderedArticles.reduce(
-              (sum: number, article: any) => sum + (article.product?.price ?? 0),
+              (sum: number, article: any) =>
+                sum + (article.product?.price ?? 0),
               0
             );
             const productLines = groupArticlesByProduct(orderedArticles);
             const isOnlinePaid =
               reservation.paymentMethod === "card" &&
               reservation.paymentStatus === "paid" &&
-              Boolean(reservation.stripeSessionId);
+              Boolean(reservation.stripeSessionId) &&
+              Boolean(reservation.stripePaymentConfirmedAt);
             const hasOnlinePaymentIntent =
               reservation.paymentMethod === "card" &&
               Boolean(reservation.stripeSessionId);
-            const paymentModeLabel = isOnlinePaid ? "Paiement confirme" : "Sur place";
+            const paymentModeLabel = isOnlinePaid
+              ? "Paiement confirme"
+              : "Sur place";
             const paymentModeClass = isOnlinePaid
               ? "payment-pill"
               : "payment-pill payment-pill-store";
@@ -647,10 +702,14 @@ function AdminContent() {
                 <div className="order-head">
                   <span>Reservation #{reservation.id}</span>
                   <div>
-                    <span className={`status-pill status-${reservation.status}`}>
+                    <span
+                      className={`status-pill status-${reservation.status}`}
+                    >
                       {statusLabels[reservation.status] || reservation.status}
                     </span>
-                    <span className={`status-pill payment-${reservation.paymentStatus}`}>
+                    <span
+                      className={`status-pill payment-${reservation.paymentStatus}`}
+                    >
                       {paymentLabels[reservation.paymentStatus] ||
                         reservation.paymentStatus}
                     </span>
@@ -685,9 +744,13 @@ function AdminContent() {
                     <p>
                       Retrait :{" "}
                       {reservation.pickupDate
-                        ? `${new Date(reservation.pickupDate).toLocaleDateString(
-                            "fr-FR"
-                          )}${reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""}`
+                        ? `${new Date(
+                            reservation.pickupDate
+                          ).toLocaleDateString("fr-FR")}${
+                            reservation.pickupTime
+                              ? ` a ${reservation.pickupTime}`
+                              : ""
+                          }`
                         : "date non renseignee"}
                     </p>
                   )}
@@ -695,36 +758,40 @@ function AdminContent() {
                     <p>
                       Retrait :{" "}
                       {reservation.pickupDate
-                        ? `${new Date(reservation.pickupDate).toLocaleDateString(
-                            "fr-FR"
-                          )}${reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""}`
+                        ? `${new Date(
+                            reservation.pickupDate
+                          ).toLocaleDateString("fr-FR")}${
+                            reservation.pickupTime
+                              ? ` a ${reservation.pickupTime}`
+                              : ""
+                          }`
                         : "date non renseignee"}
                     </p>
                   )}
                 </div>
                 <div className="order-products">
-                  <span className="admin-mini-label">Produits commandes</span>
+                  <span className="admin-mini-label">Produits commandés</span>
                   <p>
-                    {orderedArticles.length} produit(s),{" "}
-                    {productLines.length} reference(s) - {formatPrice(total)}
+                    {orderedArticles.length} produit(s), {productLines.length}{" "}
+                    reference(s) - {formatPrice(total)}
                   </p>
                   <ul>
                     {productLines.length > 0 ? (
                       productLines.map((line) => (
-                      <li key={line.productKey}>
-                        <img
-                          src={getProductImage(line.product)}
-                          alt={line.product?.name}
-                          onError={(event) => {
-                            event.currentTarget.src = defaultProductImage;
-                          }}
-                        />
-                        <span>{line.product?.name}</span>
-                        <span className="order-product-quantity">
-                          x{line.quantity}
-                        </span>
-                        <strong>{formatPrice(line.total)}</strong>
-                      </li>
+                        <li key={line.productKey}>
+                          <img
+                            src={getProductImage(line.product)}
+                            alt={line.product?.name}
+                            onError={(event) => {
+                              event.currentTarget.src = defaultProductImage;
+                            }}
+                          />
+                          <span>{line.product?.name}</span>
+                          <span className="order-product-quantity">
+                            x{line.quantity}
+                          </span>
+                          <strong>{formatPrice(line.total)}</strong>
+                        </li>
                       ))
                     ) : (
                       <li className="order-product-empty">
@@ -740,11 +807,15 @@ function AdminContent() {
                     <select
                       value={orderDraft.status}
                       onChange={(event) =>
-                        changeOrderDraft(reservation, "status", event.target.value)
+                        changeOrderDraft(
+                          reservation,
+                          "status",
+                          event.target.value
+                        )
                       }
                     >
                       <option value="pending">Booking - reservation</option>
-                      <option value="submitted">Commande recue</option>
+                      <option value="submitted">Commande reçue</option>
                       <option value="validated">Validee par admin</option>
                       <option value="ongoing">Preparation</option>
                       <option value="shipped" disabled={!isShippableOrder}>
@@ -789,7 +860,9 @@ function AdminContent() {
                             )
                           }
                         >
-                          <option value="">A definir</option>
+                          <option value="" disabled>
+                            Choisir un transporteur
+                          </option>
                           <option value="La Poste">La Poste</option>
                           <option value="Colissimo">Colissimo</option>
                           <option value="Chronopost">Chronopost</option>
@@ -817,18 +890,21 @@ function AdminContent() {
                   ) : null}
 
                   {isShippableOrder &&
-                    (reservation.shippingCarrier || reservation.trackingNumber) && (
-                    <p className="admin-tracking-summary">
-                      {reservation.shippingCarrier || "Transporteur a definir"} -{" "}
-                      {reservation.trackingNumber || "numero a renseigner"}
-                    </p>
-                  )}
+                    (reservation.shippingCarrier ||
+                      reservation.trackingNumber) && (
+                      <p className="admin-tracking-summary">
+                        {reservation.shippingCarrier || "Transporteur requis"} -{" "}
+                        {reservation.trackingNumber || "numéro à renseigner"}
+                      </p>
+                    )}
                   <span className={`status-pill ${paymentModeClass}`}>
                     {paymentModeLabel}
                   </span>
                   {orderFeedbacks[reservation.id] && (
                     <p
-                      className={`order-feedback order-feedback-${orderFeedbacks[reservation.id].type}`}
+                      className={`order-feedback order-feedback-${
+                        orderFeedbacks[reservation.id].type
+                      }`}
                     >
                       {orderFeedbacks[reservation.id].message}
                     </p>
@@ -845,6 +921,7 @@ function AdminContent() {
                           ? "ended"
                           : orderDraft.status,
                         orderDraft.paymentStatus,
+                        isShippableOrder,
                         isShippableOrder ? orderDraft.shippingCarrier : "",
                         isShippableOrder ? orderDraft.trackingNumber : ""
                       )
@@ -871,9 +948,7 @@ function AdminContent() {
 
       <section
         className={
-          editingProductId
-            ? "admin-layout"
-            : "admin-layout admin-products-only"
+          editingProductId ? "admin-layout" : "admin-layout admin-products-only"
         }
         id="gestion-produits"
       >
@@ -884,98 +959,100 @@ function AdminContent() {
             ref={productFormRef}
             noValidate
           >
-          <h2>Modifier le produit</h2>
+            <h2>Modifier le produit</h2>
             <p className="admin-editing-note">
               Produit en modification : validez le formulaire pour enregistrer.
             </p>
-          <label>
-            Nom
-            <input
-              required
-              minLength={10}
-              value={form.name}
-              onChange={(event) => handleChange("name", event.target.value)}
-            />
-          </label>
-          <label>
-            Description du produit
-            <textarea
-              required
-              value={form.description}
-              onChange={(event) =>
-                handleChange("description", event.target.value)
-              }
-            />
-          </label>
-          <label>
-            Categorie
-            <select
-              required
-              value={form.category}
-              onChange={(event) => handleChange("category", event.target.value)}
-            >
-              <option value="" disabled>
-                Choisir une categorie
-              </option>
-              {productCategories.map((category) => (
-                <option key={category.value} value={category.value}>
-                  {category.label}
+            <label>
+              Nom
+              <input
+                required
+                minLength={10}
+                value={form.name}
+                onChange={(event) => handleChange("name", event.target.value)}
+              />
+            </label>
+            <label>
+              Description du produit
+              <textarea
+                required
+                value={form.description}
+                onChange={(event) =>
+                  handleChange("description", event.target.value)
+                }
+              />
+            </label>
+            <label>
+              Categorie
+              <select
+                required
+                value={form.category}
+                onChange={(event) =>
+                  handleChange("category", event.target.value)
+                }
+              >
+                <option value="" disabled>
+                  Choisir une categorie
                 </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Image
-            <input
-              key={imageInputKey}
-              type="file"
-              accept="image/*"
-              onChange={selectImageFile}
-            />
-            <span className="form-help-text">
-              Image obligatoire pour publier le produit.
-            </span>
-          </label>
-          {form.imgUrl && (
-            <img
-              className="admin-image-preview"
-              src={form.imgUrl}
-              alt="Apercu du produit"
-            />
-          )}
-          <label>
-            Prix
-            <input
-              required
-              type="number"
-              min="0"
-              step="1"
-              value={form.price}
-              onChange={(event) => handleChange("price", event.target.value)}
-            />
-          </label>
-          <label>
-            Stock souhaite
-            <input
-              required
-              type="number"
-              min={editingProductId ? "0" : "1"}
-              step="1"
-              value={form.stock}
-              onChange={(event) => handleChange("stock", event.target.value)}
-            />
-          </label>
-          <button type="submit" disabled={creating || editing}>
-            Enregistrer les modifications
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={resetProductForm}
-          >
-            Annuler
-          </button>
-        </form>
+                {productCategories.map((category) => (
+                  <option key={category.value} value={category.value}>
+                    {category.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Image
+              <input
+                key={imageInputKey}
+                type="file"
+                accept="image/*"
+                onChange={selectImageFile}
+              />
+              <span className="form-help-text">
+                Image obligatoire pour publier le produit.
+              </span>
+            </label>
+            {form.imgUrl && (
+              <img
+                className="admin-image-preview"
+                src={form.imgUrl}
+                alt="Apercu du produit"
+              />
+            )}
+            <label>
+              Prix
+              <input
+                required
+                type="number"
+                min="0"
+                step="1"
+                value={form.price}
+                onChange={(event) => handleChange("price", event.target.value)}
+              />
+            </label>
+            <label>
+              Stock souhaite
+              <input
+                required
+                type="number"
+                min={editingProductId ? "0" : "1"}
+                step="1"
+                value={form.stock}
+                onChange={(event) => handleChange("stock", event.target.value)}
+              />
+            </label>
+            <button type="submit" disabled={creating || editing}>
+              Enregistrer les modifications
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={resetProductForm}
+            >
+              Annuler
+            </button>
+          </form>
         ) : null}
 
         <section className="admin-panel">
@@ -1005,9 +1082,12 @@ function AdminContent() {
                 />
                 <div>
                   <h3>{product.name}</h3>
-                  <p className="admin-product-description">{product.description}</p>
+                  <p className="admin-product-description">
+                    {product.description}
+                  </p>
                   <span className="product-category-pill">
-                    {categoryLabels[product.category || ""] || "Categorie non definie"}
+                    {categoryLabels[product.category || ""] ||
+                      "Categorie non definie"}
                   </span>
                   <p>{formatPrice(product.price)}</p>
                   <p className="stock-count">
@@ -1022,7 +1102,9 @@ function AdminContent() {
                         type="number"
                         min="0"
                         step="1"
-                        value={stockInputs[product.id] ?? getStockCount(product)}
+                        value={
+                          stockInputs[product.id] ?? getStockCount(product)
+                        }
                         onChange={(event) =>
                           changeStockInput(product.id, event.target.value)
                         }
@@ -1055,7 +1137,9 @@ function AdminContent() {
                       type="button"
                       className="danger-button"
                       onClick={() =>
-                        deleteProduct({ variables: { deleteProductId: product.id } })
+                        deleteProduct({
+                          variables: { deleteProductId: product.id },
+                        })
                       }
                     >
                       Supprimer
@@ -1067,7 +1151,6 @@ function AdminContent() {
           </div>
         </section>
       </section>
-
     </main>
   );
 }
@@ -1087,8 +1170,7 @@ function AdminGate() {
   const { data, loading } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
   });
-  const isAdmin =
-    data?.whoAmI?.isLoggedIn && data?.whoAmI?.role === Role.Admin;
+  const isAdmin = data?.whoAmI?.isLoggedIn && data?.whoAmI?.role === Role.Admin;
 
   useEffect(() => {
     if (!loading && !isAdmin) {

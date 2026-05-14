@@ -9,10 +9,7 @@ import {
   DELETE_TREATED_RESERVATION_ADMIN,
   RESTORE_TREATED_RESERVATION_ADMIN,
 } from "../graphql/mutations";
-import {
-  GET_TREATED_RESERVATIONS_ADMIN,
-  WHO_AM_I,
-} from "../graphql/queries";
+import { GET_TREATED_RESERVATIONS_ADMIN, WHO_AM_I } from "../graphql/queries";
 import { Role } from "../interface/types";
 import { defaultProductImage, getProductImage } from "../utils/productImages";
 
@@ -37,7 +34,9 @@ const groupArticlesByProduct = (articles: any[] = []) =>
   articles.reduce((groups: any[], article: any) => {
     const product = article.product ?? {};
     const productKey = product.id ?? product.name ?? article.id;
-    const existingGroup = groups.find((group) => group.productKey === productKey);
+    const existingGroup = groups.find(
+      (group) => group.productKey === productKey
+    );
 
     if (existingGroup) {
       existingGroup.quantity += 1;
@@ -113,20 +112,18 @@ function TreatedOrdersContent() {
 
   const treatedReservations = (
     reservationsData?.getTreatedReservationsAdmin ?? []
-  ).filter(
-    (reservation: any) => {
-      const orderedArticles = getOrderedArticles(reservation);
-      const total = orderedArticles.reduce(
-        (sum: number, article: any) => sum + (article.product?.price ?? 0),
-        0
-      );
+  ).filter((reservation: any) => {
+    const orderedArticles = getOrderedArticles(reservation);
+    const total = orderedArticles.reduce(
+      (sum: number, article: any) => sum + (article.product?.price ?? 0),
+      0
+    );
 
-      return (
-        total > 0 &&
-        (reservation.archivedByAdmin || reservation.status === "ended")
-      );
-    }
-  );
+    return (
+      total > 0 &&
+      (reservation.archivedByAdmin || reservation.status === "ended")
+    );
+  });
 
   return (
     <main className="admin-page">
@@ -146,14 +143,16 @@ function TreatedOrdersContent() {
       <section className="admin-panel admin-orders">
         <div className="admin-section-heading">
           <div>
-            <p className="shop-kicker">Terminees</p>
+            <p className="shop-kicker">Terminées</p>
             <h2>Historique des commandes</h2>
           </div>
           <strong>{treatedReservations.length} traitee(s)</strong>
         </div>
 
         {loadingReservations && <p>Chargement des commandes traitees...</p>}
-        {reservationsError && <p>Impossible de charger les commandes traitees.</p>}
+        {reservationsError && (
+          <p>Impossible de charger les commandes traitees.</p>
+        )}
         {!loadingReservations && !treatedReservations.length && (
           <p>Aucune commande traitee pour le moment.</p>
         )}
@@ -162,7 +161,8 @@ function TreatedOrdersContent() {
           {treatedReservations.map((reservation: any) => {
             const orderedArticles = getOrderedArticles(reservation);
             const total = orderedArticles.reduce(
-              (sum: number, article: any) => sum + (article.product?.price ?? 0),
+              (sum: number, article: any) =>
+                sum + (article.product?.price ?? 0),
               0
             );
             const productLines = groupArticlesByProduct(orderedArticles);
@@ -177,11 +177,13 @@ function TreatedOrdersContent() {
             const orderDate = reservation.createdAt
               ? new Date(reservation.createdAt).toLocaleDateString("fr-FR")
               : "date non renseignee";
-            const trackingLabel = `${reservation.shippingCarrier || "Transporteur a definir"} - ${
-              reservation.trackingNumber || "numero a renseigner"
-            }`;
+            const trackingLabel = `${
+              reservation.shippingCarrier || "Transporteur a definir"
+            } - ${reservation.trackingNumber || "numero a renseigner"}`;
             const pickupLabel = reservation.pickupDate
-              ? `${new Date(reservation.pickupDate).toLocaleDateString("fr-FR")}${
+              ? `${new Date(reservation.pickupDate).toLocaleDateString(
+                  "fr-FR"
+                )}${
                   reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""
                 }`
               : "date non renseignee";
@@ -198,7 +200,9 @@ function TreatedOrdersContent() {
                         ? "colis livre"
                         : "commande traitee"}
                     </span>
-                    <span className={`status-pill payment-${reservation.paymentStatus}`}>
+                    <span
+                      className={`status-pill payment-${reservation.paymentStatus}`}
+                    >
                       {paymentLabels[reservation.paymentStatus] ||
                         reservation.paymentStatus}
                     </span>
@@ -220,7 +224,9 @@ function TreatedOrdersContent() {
                   </div>
                   <div>
                     <span className="admin-mini-label">Paiement</span>
-                    <strong>{isOnlinePaid ? "Carte bancaire confirmee" : "Paye"}</strong>
+                    <strong>
+                      {isOnlinePaid ? "Carte bancaire confirmee" : "Paye"}
+                    </strong>
                   </div>
                   <div>
                     <span className="admin-mini-label">Livraison</span>
@@ -268,9 +274,13 @@ function TreatedOrdersContent() {
                     <p>
                       Retrait :{" "}
                       {reservation.pickupDate
-                        ? `${new Date(reservation.pickupDate).toLocaleDateString(
-                            "fr-FR"
-                          )}${reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""}`
+                        ? `${new Date(
+                            reservation.pickupDate
+                          ).toLocaleDateString("fr-FR")}${
+                            reservation.pickupTime
+                              ? ` a ${reservation.pickupTime}`
+                              : ""
+                          }`
                         : "date non renseignee"}
                     </p>
                   )}
@@ -278,37 +288,41 @@ function TreatedOrdersContent() {
                     <p>
                       Retrait :{" "}
                       {reservation.pickupDate
-                        ? `${new Date(reservation.pickupDate).toLocaleDateString(
-                            "fr-FR"
-                          )}${reservation.pickupTime ? ` a ${reservation.pickupTime}` : ""}`
+                        ? `${new Date(
+                            reservation.pickupDate
+                          ).toLocaleDateString("fr-FR")}${
+                            reservation.pickupTime
+                              ? ` a ${reservation.pickupTime}`
+                              : ""
+                          }`
                         : "date non renseignee"}
                     </p>
                   )}
                 </div>
 
                 <div className="order-products">
-                  <span className="admin-mini-label">Produits commandes</span>
+                  <span className="admin-mini-label">Produits commandés</span>
                   <p>
-                    {orderedArticles.length} produit(s),{" "}
-                    {productLines.length} reference(s) - {formatPrice(total)}
+                    {orderedArticles.length} produit(s), {productLines.length}{" "}
+                    reference(s) - {formatPrice(total)}
                   </p>
                   <ul>
                     {productLines.length > 0 ? (
                       productLines.map((line) => (
-                      <li key={line.productKey}>
-                        <img
-                          src={getProductImage(line.product)}
-                          alt={line.product?.name || "Produit BeautyPlace"}
-                          onError={(event) => {
-                            event.currentTarget.src = defaultProductImage;
-                          }}
-                        />
-                        <span>{line.product?.name}</span>
-                        <span className="order-product-quantity">
-                          x{line.quantity}
-                        </span>
-                        <strong>{formatPrice(line.total)}</strong>
-                      </li>
+                        <li key={line.productKey}>
+                          <img
+                            src={getProductImage(line.product)}
+                            alt={line.product?.name || "Produit BeautyPlace"}
+                            onError={(event) => {
+                              event.currentTarget.src = defaultProductImage;
+                            }}
+                          />
+                          <span>{line.product?.name}</span>
+                          <span className="order-product-quantity">
+                            x{line.quantity}
+                          </span>
+                          <strong>{formatPrice(line.total)}</strong>
+                        </li>
                       ))
                     ) : (
                       <li className="order-product-empty">
@@ -324,18 +338,21 @@ function TreatedOrdersContent() {
                     {isArchivedOrder
                       ? "Commande conservee dans l'historique BeautyPlace."
                       : isOnlinePaid
-                      ? "Commande payee en ligne et colis livre au client."
+                      ? "Commande payée en ligne et colis livre au client."
                       : "Commande traitee par BeautyPlace."}
                   </p>
                   {isOnlinePaid && (
                     <p className="admin-tracking-summary">
-                      {reservation.shippingCarrier || "Transporteur non renseigne"} -{" "}
-                      {reservation.trackingNumber || "numero non renseigne"}
+                      {reservation.shippingCarrier ||
+                        "Transporteur non renseigne"}{" "}
+                      - {reservation.trackingNumber || "numero non renseigne"}
                     </p>
                   )}
                   <span
                     className={`status-pill ${
-                      isOnlinePaid ? "payment-pill" : "payment-pill payment-pill-store"
+                      isOnlinePaid
+                        ? "payment-pill"
+                        : "payment-pill payment-pill-store"
                     }`}
                   >
                     {isOnlinePaid ? "Paiement confirme" : "Sur place"}
@@ -383,8 +400,7 @@ function TreatedOrdersGate() {
   const { data, loading } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
   });
-  const isAdmin =
-    data?.whoAmI?.isLoggedIn && data?.whoAmI?.role === Role.Admin;
+  const isAdmin = data?.whoAmI?.isLoggedIn && data?.whoAmI?.role === Role.Admin;
 
   useEffect(() => {
     if (!loading && !isAdmin) {
