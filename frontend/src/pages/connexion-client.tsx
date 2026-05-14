@@ -168,6 +168,7 @@ function ConnexionClientContent() {
                 required
                 type="email"
                 autoComplete="email"
+                placeholder="exemple@gmail.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
@@ -217,7 +218,7 @@ function ConnexionClientContent() {
                       type="email"
                       value={resetEmail}
                       onChange={(event) => setResetEmail(event.target.value)}
-                      placeholder={email || "votre@email.com"}
+                      placeholder="exemple@gmail.com"
                     />
                   </label>
                   {resetMessage && <p className="auth-info">{resetMessage}</p>}

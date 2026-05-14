@@ -1,7 +1,13 @@
-import { useMutation } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client";
+import Link from "next/link";
 import { useState } from "react";
 import { ADD_ADVICE } from "../graphql/mutations";
-import { GET_ALL_ADVICES } from "../graphql/queries";
+import {
+  GET_ALL_ADVICES,
+  GET_RESERVATIONS_BY_USER_ID,
+  WHO_AM_I,
+} from "../graphql/queries";
+import { Role } from "../interface/types";
 
 const DEFAULT_ADVICE_IMAGE =
   "https://img.freepik.com/premium-vector/default-image-icon-vector-missing-picture-page-website-design-mobile-app-no-photo-available_87543-11093.jpg";
@@ -57,6 +63,29 @@ function Advice() {
   const [addAvis, { loading, error }] = useMutation(ADD_ADVICE, {
     refetchQueries: [{ query: GET_ALL_ADVICES }],
   });
+  const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
+    fetchPolicy: "cache-and-network",
+  });
+  const isClient =
+    userData?.whoAmI?.isLoggedIn && userData?.whoAmI?.role === Role.User;
+  const { data: reservationsData, loading: loadingReservations } = useQuery(
+    GET_RESERVATIONS_BY_USER_ID,
+    {
+      fetchPolicy: "network-only",
+      skip: !isClient,
+    }
+  );
+  const canLeaveAdvice =
+    isClient &&
+    (reservationsData?.getReservationsByUserId ?? []).some((item: any) => {
+      const reservation = item.reservation;
+
+      return (
+        reservation?.paymentStatus === "paid" &&
+        reservation?.status === "ended" &&
+        item.totalPrice > 0
+      );
+    });
 
   // Gestion du formulaire
   const handleChange = (
@@ -161,6 +190,33 @@ function Advice() {
         <h1>Laissez votre avis</h1>
       </div>
 
+      {(loadingUser || loadingReservations) && (
+        <p className="shop-message">Verification de votre achat...</p>
+      )}
+
+      {!loadingUser && !isClient && (
+        <div className="verified-review-lock">
+          <strong>Connexion client requise</strong>
+          <p>
+            Les avis sont réservés aux clients BeautyPlace ayant reçu une
+            commande payée.
+          </p>
+          <Link href="/connexion-client">Me connecter</Link>
+        </div>
+      )}
+
+      {!loadingReservations && isClient && !canLeaveAdvice && (
+        <div className="verified-review-lock">
+          <strong>Avis disponible après réception</strong>
+          <p>
+            Vous pourrez laisser un avis lorsque votre commande payée sera
+            marquée comme reçue.
+          </p>
+          <Link href="/suivi-commandes">Voir mon suivi</Link>
+        </div>
+      )}
+
+      {canLeaveAdvice && (
       <form className="avis" onSubmit={handleSubmit}>
         <div className={`advice-upload${imageError ? " is-invalid" : ""}`}>
           <img
@@ -249,6 +305,7 @@ function Advice() {
         {successMessage && <p className="success-message">{successMessage}</p>}
         {error && <p className="error-message">Une erreur est survenue.</p>}
       </form>
+      )}
 
     </section>
   );

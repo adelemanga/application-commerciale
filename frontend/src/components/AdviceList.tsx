@@ -130,6 +130,7 @@ function AdviceList() {
             <p className="name">
               {advice.name} {advice.lastname}
             </p>
+            <span className="verified-purchase-badge">Achat vérifié</span>
             <p className="rating">{"⭐".repeat(advice.rating)}</p>
 
             <p>{advice.message}</p>

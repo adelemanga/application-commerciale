@@ -6,6 +6,7 @@ import {
   BaseEntity,
   ManyToOne,
 } from "typeorm";
+import { User } from "./User";
 
 @ObjectType()
 @Entity()
@@ -48,4 +49,7 @@ export class Avis extends BaseEntity {
   @Field({ nullable: true })
   @Column({ nullable: true })
   adminReplyAt?: Date;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
+  user?: User;
 }

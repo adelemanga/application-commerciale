@@ -7,10 +7,17 @@ import {
   Mutation,
   Query,
   Resolver,
+  Ctx,
 } from "type-graphql";
 import { db } from "../config/db";
 import { Avis } from "../entities/Avis";
-import { Role } from "../entities/User";
+import { Context } from "../../src";
+import {
+  PaymentStatus,
+  Reservation,
+  ReservationStatus,
+} from "../entities/Reservation";
+import { Role, User } from "../entities/User";
 
 @InputType()
 class NewAvisInput implements Partial<Avis> {
@@ -76,20 +83,84 @@ const isCompleteAvis = (avis: Avis) => {
   );
 };
 
+const getVerifiedReviewClient = async (context: Context) => {
+  if (!context.id) {
+    throw new Error("Connectez-vous avec un compte client pour laisser un avis.");
+  }
+
+  const client = await User.findOne({
+    where: {
+      id: context.id,
+      role: Role.User,
+    },
+  });
+
+  if (!client) {
+    throw new Error("Connectez-vous avec un compte client pour laisser un avis.");
+  }
+
+  const receivedPaidOrder = await Reservation.findOne({
+    where: {
+      user: { id: client.id },
+      paymentStatus: PaymentStatus.Paid,
+      status: ReservationStatus.Ended,
+    },
+  });
+
+  if (!receivedPaidOrder) {
+    throw new Error(
+      "Vous pourrez laisser un avis lorsque votre commande payee sera recue."
+    );
+  }
+
+  return client;
+};
+
+const hasVerifiedReviewOrder = async (userId?: string) => {
+  if (!userId) {
+    return false;
+  }
+
+  const receivedPaidOrder = await Reservation.findOne({
+    where: {
+      user: { id: userId },
+      paymentStatus: PaymentStatus.Paid,
+      status: ReservationStatus.Ended,
+    },
+  });
+
+  return Boolean(receivedPaidOrder);
+};
+
 @Resolver(Avis)
 class AvisResolver {
   @Query(() => [Avis])
   async getAllAvis() {
-    const avis = await Avis.find();
+    const avis = await Avis.find({
+      relations: {
+        user: true,
+      },
+      order: {
+        id: "DESC",
+      },
+    });
     const incompleteAvis = avis.filter((avi) => !isCompleteAvis(avi));
 
     if (incompleteAvis.length) {
       await Avis.remove(incompleteAvis);
     }
 
-    return avis.filter(isCompleteAvis);
+    const completeAvis = avis.filter(isCompleteAvis);
+    const verifiedAvis = await Promise.all(
+      completeAvis.map(async (avi) =>
+        (await hasVerifiedReviewOrder(avi.user?.id)) ? avi : null
+      )
+    );
+
+    return verifiedAvis.filter(Boolean) as Avis[];
   }
 
+  @Authorized(Role.User)
   @Mutation(() => Avis)
   async addAvis(
     @Arg("name") name: string,
@@ -97,8 +168,10 @@ class AvisResolver {
     @Arg("message") message: string,
     @Arg("imgUrl") imgUrl: string,
     @Arg("rating", () => Int) rating: number,
-    @Arg("title") title: string
+    @Arg("title") title: string,
+    @Ctx() context: Context
   ): Promise<Avis> {
+    const client = await getVerifiedReviewClient(context);
     const avi = Avis.create({
       name: name.trim(),
       lastname: lastname.trim(),
@@ -106,6 +179,7 @@ class AvisResolver {
       imgUrl: normalizeAvisImage(imgUrl),
       rating,
       title: title.trim(),
+      user: client,
     });
 
     if (!isCompleteAvis(avi)) {
@@ -118,12 +192,31 @@ class AvisResolver {
 
   @Query(() => [Avis])
   async avis() {
-    const avis = await db.getRepository(Avis).find();
-    return avis.filter(isCompleteAvis);
+    const avis = await db.getRepository(Avis).find({
+      relations: {
+        user: true,
+      },
+      order: {
+        id: "DESC",
+      },
+    });
+    const completeAvis = avis.filter(isCompleteAvis);
+    const verifiedAvis = await Promise.all(
+      completeAvis.map(async (avi) =>
+        (await hasVerifiedReviewOrder(avi.user?.id)) ? avi : null
+      )
+    );
+
+    return verifiedAvis.filter(Boolean) as Avis[];
   }
 
+  @Authorized(Role.User)
   @Mutation(() => Avis)
-  async createNewAvis(@Arg("data") newAviData: NewAvisInput) {
+  async createNewAvis(
+    @Arg("data") newAviData: NewAvisInput,
+    @Ctx() context: Context
+  ) {
+    const client = await getVerifiedReviewClient(context);
     const avisToSave = {
       ...newAviData,
       name: newAviData.name.trim(),
@@ -139,6 +232,7 @@ class AvisResolver {
 
     const resultFromSave = await Avis.save({
       ...avisToSave,
+      user: client,
     });
 
     return resultFromSave;

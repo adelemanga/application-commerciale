@@ -34,7 +34,6 @@ const services = [
 
 export default function HomePage() {
   const servicesSliderRef = useRef<HTMLElement | null>(null);
-  const isSliderPausedRef = useRef(false);
 
   useEffect(() => {
     if (
@@ -44,28 +43,39 @@ export default function HomePage() {
       return undefined;
     }
 
-    const interval = window.setInterval(() => {
+    let animationFrame = 0;
+    let previousTime = 0;
+    const speed = 92;
+
+    const animateSlider = (time: number) => {
       const slider = servicesSliderRef.current;
 
-      if (!slider || isSliderPausedRef.current) return;
+      if (!slider) {
+        animationFrame = window.requestAnimationFrame(animateSlider);
+        return;
+      }
 
-      const firstCard = slider.querySelector<HTMLElement>(
-        ".beauty-service-card"
-      );
-      const sliderStyles = window.getComputedStyle(slider);
-      const sliderGap =
-        Number.parseFloat(sliderStyles.columnGap || sliderStyles.gap) || 24;
-      const step = (firstCard?.offsetWidth || 262) + sliderGap;
+      if (!previousTime) {
+        previousTime = time;
+      }
+
+      const elapsedSeconds = (time - previousTime) / 1000;
       const halfWidth = slider.scrollWidth / 2;
-      const nextScroll = slider.scrollLeft + step;
+      const nextScroll = slider.scrollLeft + speed * elapsedSeconds;
 
-      slider.scrollTo({
-        left: nextScroll >= halfWidth ? 0 : nextScroll,
-        behavior: "smooth",
-      });
-    }, 3500);
+      if (nextScroll >= halfWidth) {
+        slider.scrollLeft = 0;
+      } else {
+        slider.scrollLeft = nextScroll;
+      }
 
-    return () => window.clearInterval(interval);
+      previousTime = time;
+      animationFrame = window.requestAnimationFrame(animateSlider);
+    };
+
+    animationFrame = window.requestAnimationFrame(animateSlider);
+
+    return () => window.cancelAnimationFrame(animationFrame);
   }, []);
 
   return (
@@ -110,18 +120,6 @@ export default function HomePage() {
         className="beauty-services"
         aria-label="Services beaute"
         ref={servicesSliderRef}
-        onMouseEnter={() => {
-          isSliderPausedRef.current = true;
-        }}
-        onMouseLeave={() => {
-          isSliderPausedRef.current = false;
-        }}
-        onFocus={() => {
-          isSliderPausedRef.current = true;
-        }}
-        onBlur={() => {
-          isSliderPausedRef.current = false;
-        }}
       >
         {[...services, ...services].map((service, index) => {
           const isDuplicate = index >= services.length;

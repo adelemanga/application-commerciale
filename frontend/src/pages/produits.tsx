@@ -81,7 +81,9 @@ function ProduitsContent() {
       return;
     }
 
-    const savedLikes = window.localStorage.getItem(`liked-products-${userEmail}`);
+    const savedLikes = window.localStorage.getItem(
+      `liked-products-${userEmail}`
+    );
     setLikedProductIds(savedLikes ? JSON.parse(savedLikes) : []);
   }, [userEmail]);
 
@@ -96,7 +98,9 @@ function ProduitsContent() {
       : null;
   const category = selectedCategory ? categories[selectedCategory] : null;
   const displayedProducts = useMemo(() => {
-    const sellableProducts = products.filter((product) => Number(product.price) > 0);
+    const sellableProducts = products.filter(
+      (product) => Number(product.price) > 0
+    );
 
     if (!category) {
       return sellableProducts;
@@ -115,30 +119,33 @@ function ProduitsContent() {
   const reservation = cartData?.getCurrentReservationByUserId?.reservation;
   const totalPrice = cartData?.getCurrentReservationByUserId?.totalPrice ?? 0;
   const cartLines = useMemo(() => {
-    return (reservation?.articles ?? []).reduce((lines: any[], article: any) => {
-      const productId = article.product?.id || article.product?.name || article.id;
-      const existingLine = lines.find((line) => line.productId === productId);
+    return (reservation?.articles ?? [])
+      .reduce((lines: any[], article: any) => {
+        const productId =
+          article.product?.id || article.product?.name || article.id;
+        const existingLine = lines.find((line) => line.productId === productId);
 
-      if (existingLine) {
-        existingLine.quantity += 1;
-        existingLine.lineTotal += article.product?.price ?? 0;
+        if (existingLine) {
+          existingLine.quantity += 1;
+          existingLine.lineTotal += article.product?.price ?? 0;
+          return lines;
+        }
+
+        lines.push({
+          productId,
+          product: article.product,
+          quantity: 1,
+          lineTotal: article.product?.price ?? 0,
+        });
+
         return lines;
-      }
-
-      lines.push({
-        productId,
-        product: article.product,
-        quantity: 1,
-        lineTotal: article.product?.price ?? 0,
-      });
-
-      return lines;
-    }, []).sort((firstLine: any, secondLine: any) =>
-      String(firstLine.product?.name ?? "").localeCompare(
-        String(secondLine.product?.name ?? ""),
-        "fr"
-      )
-    );
+      }, [])
+      .sort((firstLine: any, secondLine: any) =>
+        String(firstLine.product?.name ?? "").localeCompare(
+          String(secondLine.product?.name ?? ""),
+          "fr"
+        )
+      );
   }, [reservation?.articles]);
 
   const toggleLike = (productId: string) => {
@@ -165,7 +172,9 @@ function ProduitsContent() {
     }
 
     if (Number(product.price) <= 0) {
-      setMessage("Ce produit ne peut pas etre commande car son prix est invalide.");
+      setMessage(
+        "Ce produit ne peut pas etre commande car son prix est invalide."
+      );
       return;
     }
 
@@ -191,7 +200,9 @@ function ProduitsContent() {
     )?.id;
 
     if (!articleId) {
-      setMessage("Toutes les unites disponibles de ce produit sont deja dans votre panier.");
+      setMessage(
+        "Toutes les unites disponibles de ce produit sont deja dans votre panier."
+      );
       pendingProductIds.current.delete(product.id);
       setAddingProductId(null);
       return;
@@ -211,7 +222,7 @@ function ProduitsContent() {
         },
       });
       await refetchCart();
-      setMessage(`${product.name} a ete ajoute au panier.`);
+      setMessage(`${product.name} a été ajouté au panier.`);
     } catch {
       setMessage("Impossible d'ajouter ce produit au panier.");
     } finally {
@@ -244,13 +255,17 @@ function ProduitsContent() {
         )}
       </section>
 
-      {message && <p className="shop-message">{message}</p>}
-      {loading && !products.length && (
-        <p className="shop-message">La boutique se prepare...</p>
-      )}
-      {error && (
-        <p className="shop-message">Impossible d'afficher la boutique pour le moment.</p>
-      )}
+      <div className="shop-message-slot" aria-live="polite">
+        {message && <p className="shop-message">{message}</p>}
+        {!message && loading && !products.length && (
+          <p className="shop-message">La boutique se prepare...</p>
+        )}
+        {!message && error && (
+          <p className="shop-message">
+            Impossible d'afficher la boutique pour le moment.
+          </p>
+        )}
+      </div>
 
       {!isLoggedIn && (
         <section className="shop-auth-callout">
@@ -301,7 +316,9 @@ function ProduitsContent() {
                   onClick={() => addToCart(product)}
                   disabled={addingProductId === product.id}
                 >
-                  {addingProductId === product.id ? "Ajout..." : "Ajouter au panier"}
+                  {addingProductId === product.id
+                    ? "Ajout..."
+                    : "Ajouter au panier"}
                 </button>
               </div>
             </article>
@@ -320,7 +337,9 @@ function ProduitsContent() {
               <ul>
                 {cartLines.map((line: any) => (
                   <li key={line.productId}>
-                    <span className="mini-cart-product-name">{line.product.name}</span>
+                    <span className="mini-cart-product-name">
+                      {line.product.name}
+                    </span>
                     <span className="mini-cart-quantity">
                       x<strong>{line.quantity}</strong>
                     </span>

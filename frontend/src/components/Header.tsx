@@ -35,6 +35,8 @@ export default function Header() {
   const [isMobile, setIsMobile] = useState(false);
   const [dismissedAdminMessageSignature, setDismissedAdminMessageSignature] =
     useState("");
+  const [dismissedClientMessageSignature, setDismissedClientMessageSignature] =
+    useState("");
   const { data, refetch } = useQuery(WHO_AM_I, {
     fetchPolicy: "cache-and-network",
   });
@@ -50,16 +52,28 @@ export default function Header() {
     pollInterval: 30000,
     skip: !isClientLoggedIn,
   });
-  const { data: adminMessagesData } = useQuery(GET_ALL_PLATFORM_CLIENT_MESSAGES, {
-    fetchPolicy: "cache-and-network",
-    pollInterval: 15000,
-    skip: !isAdminLoggedIn,
-  });
-  const clientMessageCount =
+  const { data: adminMessagesData } = useQuery(
+    GET_ALL_PLATFORM_CLIENT_MESSAGES,
+    {
+      fetchPolicy: "cache-and-network",
+      pollInterval: 15000,
+      skip: !isAdminLoggedIn,
+    }
+  );
+  const clientUnreadAdminMessages =
     clientMessagesData?.getMyClientMessages?.filter(
       (clientMessage: any) =>
         clientMessage.senderRole === "Admin" && !clientMessage.readAt
-    ).length ?? 0;
+    ) ?? [];
+  const clientMessageCount = clientUnreadAdminMessages.length;
+  const clientUnreadMessageSignature = clientUnreadAdminMessages
+    .map((clientMessage: any) => clientMessage.id)
+    .sort()
+    .join("-");
+  const showClientMessagePopup =
+    isClientLoggedIn &&
+    clientMessageCount > 0 &&
+    dismissedClientMessageSignature !== clientUnreadMessageSignature;
   const adminUnreadClientMessages =
     adminMessagesData?.getAllPlatformClientMessages?.filter(
       (platformMessage: any) =>
@@ -74,7 +88,9 @@ export default function Header() {
     isAdminLoggedIn &&
     adminUnreadClientMessageCount > 0 &&
     dismissedAdminMessageSignature !== adminUnreadMessageSignature;
-  const clientName = [user?.firstname, user?.lastname].filter(Boolean).join(" ");
+  const clientName = [user?.firstname, user?.lastname]
+    .filter(Boolean)
+    .join(" ");
   const clientLabel = clientName || user?.email || "Mon compte client";
   const visibleMainLinks = isAdminLoggedIn
     ? mainLinks.filter((link) => link.href !== "/contact")
@@ -116,8 +132,12 @@ export default function Header() {
       {showAdminMessagePopup && (
         <div className="admin-message-popup" role="status">
           <div>
-            <strong>{adminUnreadClientMessageCount} message(s) client non lu(s)</strong>
-            <span>Ouvrez la messagerie pour traiter les nouveaux messages.</span>
+            <strong>
+              {adminUnreadClientMessageCount} message(s) client non lu(s)
+            </strong>
+            <span>
+              Ouvrez la messagerie pour traiter les nouveaux messages.
+            </span>
           </div>
           <Link href="/admin-messages">Voir</Link>
           <button
@@ -125,6 +145,28 @@ export default function Header() {
             aria-label="Fermer l'alerte messages"
             onClick={() =>
               setDismissedAdminMessageSignature(adminUnreadMessageSignature)
+            }
+          >
+            ×
+          </button>
+        </div>
+      )}
+      {showClientMessagePopup && (
+        <div className="admin-message-popup client-message-popup" role="status">
+          <div>
+            <strong>{clientMessageCount} message(s) BeautyPlace non lu(s)</strong>
+            <span>
+              Une mise a jour de commande ou un message BeautyPlace vous attend.
+            </span>
+          </div>
+          <Link href="/messages-client" onClick={rememberClientMessageOpen}>
+            Voir
+          </Link>
+          <button
+            type="button"
+            aria-label="Fermer l'alerte messages BeautyPlace"
+            onClick={() =>
+              setDismissedClientMessageSignature(clientUnreadMessageSignature)
             }
           >
             ×
@@ -178,12 +220,14 @@ export default function Header() {
               </Link>
             ) : !isLoggedIn ? (
               <>
-                <Link href="/connexion-client">Connexion</Link>
-                <Link href="/inscription-client">Inscription</Link>
+                <Link href="/connexion-client">Connexion </Link>
+                <Link href="/inscription-client">Inscription </Link>
               </>
             ) : null}
             {!isClientLoggedIn && (
-              <Link href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}>
+              <Link
+                href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}
+              >
                 {isAdminLoggedIn ? "Interface admin" : "Admin"}
               </Link>
             )}
@@ -270,7 +314,11 @@ export default function Header() {
                       aria-label="Panier"
                       onClick={() => setIsOpen(false)}
                     >
-                      <ShoppingBag aria-hidden="true" size={20} strokeWidth={2.2} />
+                      <ShoppingBag
+                        aria-hidden="true"
+                        size={20}
+                        strokeWidth={2.2}
+                      />
                       <span>Panier</span>
                     </Link>
                   </li>
@@ -305,7 +353,9 @@ export default function Header() {
                 {!isClientLoggedIn && (
                   <li>
                     <Link
-                      href={isAdminLoggedIn ? "/admin" : "/connexion-administrateur"}
+                      href={
+                        isAdminLoggedIn ? "/admin" : "/connexion-administrateur"
+                      }
                       onClick={() => setIsOpen(false)}
                     >
                       {isAdminLoggedIn ? "Interface admin" : "Admin"}
@@ -318,7 +368,7 @@ export default function Header() {
                       className="drawer-message-link"
                       href="/admin-messages"
                       onClick={() => setIsOpen(false)}
-	                    >
+                    >
                       Messages
                       {adminUnreadClientMessageCount > 0 && (
                         <span className="message-alert-badge">

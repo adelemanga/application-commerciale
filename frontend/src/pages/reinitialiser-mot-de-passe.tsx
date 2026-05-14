@@ -101,6 +101,7 @@ function ResetPasswordContent() {
             <input
               required
               type="email"
+              placeholder="exemple@gmail.com"
               value={activeEmail}
               readOnly={Boolean(email)}
               onChange={(event) => setEmailInput(event.target.value)}

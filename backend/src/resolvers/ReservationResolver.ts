@@ -114,6 +114,11 @@ const hasConfirmedOnlinePayment = (reservation: Reservation) =>
   Boolean(reservation.stripeSessionId) &&
   Boolean(reservation.stripePaymentConfirmedAt);
 
+const hasClientVisiblePaidOrder = (reservation: Reservation) =>
+  reservation.paymentStatus === PaymentStatus.Paid &&
+  hasPaidOrderValue(reservation) &&
+  calculateReservationTotal(reservation) > 0;
+
 const verifyStripePaymentConfirmation = async (reservation: Reservation) => {
   if (
     reservation.stripePaymentConfirmedAt ||
@@ -432,6 +437,7 @@ export class ReservationResolver {
       });
 
       await verifyStripePaymentConfirmations(reservations);
+      await backfillStripeSnapshots(reservations);
 
       const uniqueReservations = new Map<string, Reservation>();
 
@@ -445,15 +451,14 @@ export class ReservationResolver {
             return false;
           }
 
-          const totalPrice = calculateReservationTotal(reservation);
           const hasProducts =
             reservation.articles.length > 0 ||
             Boolean(reservation.articlesSnapshot);
 
           return (
-            hasConfirmedOnlinePayment(reservation) &&
+            hasClientVisiblePaidOrder(reservation) &&
             hasProducts &&
-            totalPrice > 0
+            calculateReservationTotal(reservation) > 0
           );
         })
         .map((reservation) => {

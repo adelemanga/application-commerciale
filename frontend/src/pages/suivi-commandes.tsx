@@ -9,7 +9,11 @@ import {
   CONFIRM_RESERVATION_RECEIVED,
   HIDE_RESERVATION_FROM_CLIENT,
 } from "../graphql/mutations";
-import { GET_RESERVATIONS_BY_USER_ID, WHO_AM_I } from "../graphql/queries";
+import {
+  GET_MY_CLIENT_MESSAGES,
+  GET_RESERVATIONS_BY_USER_ID,
+  WHO_AM_I,
+} from "../graphql/queries";
 import { defaultProductImage, getProductImage } from "../utils/productImages";
 
 const formatPrice = (price?: number) =>
@@ -452,8 +456,14 @@ function TrackingContent() {
   const { data: userData, loading: loadingUser } = useQuery(WHO_AM_I, {
     fetchPolicy: "network-only",
   });
+  const isLoggedIn = Boolean(userData?.whoAmI?.isLoggedIn);
   const { data, loading, error } = useQuery(GET_RESERVATIONS_BY_USER_ID, {
     fetchPolicy: "network-only",
+  });
+  const { data: clientMessagesData } = useQuery(GET_MY_CLIENT_MESSAGES, {
+    fetchPolicy: "cache-and-network",
+    pollInterval: 15000,
+    skip: !isLoggedIn,
   });
   const [confirmReservationReceived, { loading: confirmingReceived }] =
     useMutation(CONFIRM_RESERVATION_RECEIVED, {
@@ -466,7 +476,11 @@ function TrackingContent() {
     }
   );
 
-  const isLoggedIn = Boolean(userData?.whoAmI?.isLoggedIn);
+  const unreadBeautyPlaceMessages =
+    clientMessagesData?.getMyClientMessages?.filter(
+      (clientMessage: any) =>
+        clientMessage.senderRole === "Admin" && !clientMessage.readAt
+    ) ?? [];
   const orders = data?.getReservationsByUserId ?? [];
   const trackedOrders = orders.filter((item: any) => {
     const reservation = item.reservation;
@@ -653,6 +667,20 @@ function TrackingContent() {
         </p>
       )}
       {clientNotice && <p className="shop-message">{clientNotice}</p>}
+      {isLoggedIn && unreadBeautyPlaceMessages.length > 0 && (
+        <div className="client-message-alert">
+          <div>
+            <strong>
+              {unreadBeautyPlaceMessages.length} nouveau(x) message(s)
+              BeautyPlace
+            </strong>
+            <span>
+              Une mise a jour de commande ou de livraison vous attend.
+            </span>
+          </div>
+          <Link href="/messages-client">Ouvrir ma messagerie</Link>
+        </div>
+      )}
 
       {!isLoggedIn ? (
         <section className="empty-cart-panel">

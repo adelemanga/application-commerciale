@@ -55,6 +55,16 @@ const normalizeProductImage = (imgUrl?: string) => {
   return normalizedImage;
 };
 
+const normalizeProductText = (value: string, fieldName: string) => {
+  const cleanValue = value.replace(/;\)|😉/g, "").trim();
+
+  if (!cleanValue) {
+    throw new Error(`Renseignez ${fieldName} du produit.`);
+  }
+
+  return cleanValue;
+};
+
 // data from range picker
 @InputType()
 class ProductDateRangeInput {
@@ -101,8 +111,15 @@ class ProductResolver {
   async createNewProduct(@Arg("data") newProductData: NewProductInput) {
     const category = normalizeProductCategory(newProductData.category);
     const imgUrl = normalizeProductImage(newProductData.imgUrl);
+    const name = normalizeProductText(newProductData.name, "le nom");
+    const description = normalizeProductText(
+      newProductData.description,
+      "la description"
+    );
     const resultFromSave = await Product.save({
       ...newProductData,
+      name,
+      description,
       category,
       imgUrl,
     });
@@ -242,8 +259,11 @@ class ProductResolver {
       id: productId,
     });
 
-    product.name = newProductData.name;
-    product.description = newProductData.description;
+    product.name = normalizeProductText(newProductData.name, "le nom");
+    product.description = normalizeProductText(
+      newProductData.description,
+      "la description"
+    );
     product.price = newProductData.price;
     product.category = normalizeProductCategory(newProductData.category);
     product.imgUrl = normalizeProductImage(newProductData.imgUrl);

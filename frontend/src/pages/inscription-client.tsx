@@ -16,33 +16,46 @@ import {
 
 const resizeProfilePhoto = (file: File) =>
   new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = new Image();
-      image.onload = () => {
-        const size = 260;
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d");
+    const imageUrl = URL.createObjectURL(file);
+    const image = new Image();
 
-        if (!context) {
-          reject(new Error("Canvas unavailable"));
-          return;
-        }
+    image.onload = () => {
+      URL.revokeObjectURL(imageUrl);
 
-        const scale = Math.max(size / image.width, size / image.height);
-        const width = image.width * scale;
-        const height = image.height * scale;
-        const x = (size - width) / 2;
-        const y = (size - height) / 2;
+      const size = 260;
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
 
-        canvas.width = size;
-        canvas.height = size;
-        context.drawImage(image, x, y, width, height);
-        resolve(canvas.toDataURL("image/jpeg", 0.72));
-      };
-      image.onerror = reject;
-      image.src = String(reader.result);
+      if (!context) {
+        reject(new Error("Canvas unavailable"));
+        return;
+      }
+
+      const scale = Math.max(size / image.width, size / image.height);
+      const width = image.width * scale;
+      const height = image.height * scale;
+      const x = (size - width) / 2;
+      const y = (size - height) / 2;
+
+      canvas.width = size;
+      canvas.height = size;
+      context.drawImage(image, x, y, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.72));
     };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error("Unsupported image"));
+    };
+
+    image.src = imageUrl;
+  });
+
+const readProfilePhotoWithoutResize = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result));
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
@@ -59,6 +72,9 @@ function InscriptionClientContent() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const [isAvatarLoading, setIsAvatarLoading] = useState(false);
+  const [avatarFileName, setAvatarFileName] = useState("");
   const [firstnameError, setFirstnameError] = useState("");
   const [lastnameError, setLastnameError] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -96,21 +112,54 @@ function InscriptionClientContent() {
   const selectAvatarFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setMessage("");
+    setAvatarError("");
+    setIsAvatarLoading(false);
 
     if (!file) {
       setAvatarUrl("");
+      setAvatarFileName("");
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setMessage("Selectionnez une photo valide.");
+    const looksLikeImage =
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|jpe|jfif|pjpeg|pjp|png|webp|gif|bmp|svg|heic|heif)$/i.test(
+        file.name
+      );
+
+    if (!looksLikeImage) {
+      setAvatarUrl("");
+      setAvatarFileName("");
+      setAvatarError("Selectionnez un fichier image.");
+      event.target.value = "";
       return;
     }
 
+    setAvatarFileName(file.name);
+    setIsAvatarLoading(true);
     resizeProfilePhoto(file)
-      .then(setAvatarUrl)
-      .catch(() => {
-      setMessage("Impossible de lire cette photo.");
+      .then((resizedImage) => {
+        setAvatarUrl(resizedImage);
+        setAvatarError("");
+      })
+      .catch(async () => {
+        try {
+          const rawImage = await readProfilePhotoWithoutResize(file);
+          setAvatarUrl(rawImage);
+          setAvatarError(
+            "Photo selectionnee sans recadrage automatique. Si l'aperçu ne s'affiche pas, utilisez une photo JPG ou PNG."
+          );
+        } catch {
+          setAvatarUrl("");
+          setAvatarFileName("");
+          setAvatarError(
+            "Impossible de lire cette photo. Si elle vient d'un iPhone, convertissez-la en JPG ou PNG."
+          );
+          event.target.value = "";
+        }
+      })
+      .finally(() => {
+        setIsAvatarLoading(false);
       });
   };
 
@@ -157,8 +206,13 @@ function InscriptionClientContent() {
       router.push("/produits");
     } catch (error: any) {
       const errorMessage = error?.graphQLErrors?.[0]?.message;
+      const networkMessage = error?.networkError?.message || "";
       setMessage(
-        errorMessage || "Impossible de creer ce compte client. Verifiez les informations."
+        networkMessage.includes("413") ||
+          networkMessage.toLowerCase().includes("payload too large")
+          ? "La photo est trop lourde. Choisissez une image plus légère."
+          : errorMessage ||
+              "Impossible de creer ce compte client. Verifiez les informations."
       );
     }
   };
@@ -207,6 +261,7 @@ function InscriptionClientContent() {
               required
               type="email"
               autoComplete="email"
+              placeholder="exemple@gmail.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
@@ -231,8 +286,22 @@ function InscriptionClientContent() {
           </label>
           <label>
             Photo de profil
-            <input type="file" accept="image/*" onChange={selectAvatarFile} />
+            <input
+              type="file"
+              accept="image/*,.jpg,.jpeg,.jpe,.jfif,.pjpeg,.pjp,.png,.webp,.gif,.bmp,.svg,.heic,.heif"
+              aria-describedby="client-avatar-helper"
+              onChange={selectAvatarFile}
+            />
+            <span className="field-helper" id="client-avatar-helper">
+              {avatarFileName
+                ? `Fichier selectionne : ${avatarFileName}`
+                : "Formats acceptes : JPG, JPEG, PNG, WebP, GIF, BMP, SVG, HEIC ou HEIF."}
+            </span>
+            {avatarError && <span className="field-error">{avatarError}</span>}
           </label>
+          {isAvatarLoading && (
+            <p className="auth-helper">Lecture de la photo en cours...</p>
+          )}
           {avatarUrl && (
             <img
               className="profile-photo-preview"

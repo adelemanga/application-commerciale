@@ -149,7 +149,7 @@ export class UserResolver {
           "Ce compte est un administrateur. Connectez-vous sur la page administrateur."
         );
       }
-      throw new Error("Connexion client refusee");
+      throw new Error("Connexion client refusée");
     }
   }
 
@@ -173,7 +173,7 @@ export class UserResolver {
           "Ce compte est un compte client. Connectez-vous sur la page client."
         );
       }
-      throw new Error("Connexion administrateur refusee");
+      throw new Error("Connexion administrateur refusée");
     }
   }
 

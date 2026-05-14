@@ -48,8 +48,9 @@ function InscriptionAdministrateurContent() {
         <p className="shop-kicker">Administration</p>
         <h1>Inscription administrateur</h1>
         <p className="auth-helper">
-          Cette inscription est reservee a l'equipe. Utilisez le code
-          administrateur ou connectez-vous d'abord avec un compte admin existant.
+          Cette inscription est reservee a l'équipe. Utilisez le code
+          administrateur ou connectez-vous d'abord avec un compte admin
+          existant.
         </p>
         <form className="auth-form" onSubmit={submitAdmin}>
           <div className="auth-two-columns">
@@ -76,6 +77,7 @@ function InscriptionAdministrateurContent() {
               required
               type="email"
               autoComplete="email"
+              placeholder="exemple@gmail.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
@@ -106,7 +108,10 @@ function InscriptionAdministrateurContent() {
           </button>
         </form>
         <div className="auth-link-row">
-          <Link className="auth-secondary-link" href="/connexion-administrateur">
+          <Link
+            className="auth-secondary-link"
+            href="/connexion-administrateur"
+          >
             Deja admin
           </Link>
           <Link className="auth-secondary-link" href="/admin">

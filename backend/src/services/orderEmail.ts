@@ -343,7 +343,7 @@ export const sendOrderStatusUpdateEmail = async (reservation: Reservation) => {
             : ""
         }
         <p>Le detail reste disponible dans votre espace client, rubrique Suivi et facture.</p>
-        <p style="color:#76636c;">L'equipe BeautyPlace</p>
+        <p style="color:#76636c;">L'équipe BeautyPlace</p>
       </div>
     `,
   });

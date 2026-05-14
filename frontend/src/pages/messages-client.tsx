@@ -12,6 +12,12 @@ import {
 import { GET_MY_CLIENT_MESSAGES, WHO_AM_I } from "../graphql/queries";
 import { Role } from "../interface/types";
 
+const defaultClientAvatar =
+  "https://img.freepik.com/premium-vector/default-avatar-profile-icon-vector-social-media-user-image_543062-212.jpg";
+
+const beautyPlaceAvatar =
+  "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=120&q=80";
+
 function MessagesClientContent() {
   const router = useRouter();
   const [messageToAdmin, setMessageToAdmin] = useState("");
@@ -54,6 +60,7 @@ function MessagesClientContent() {
   const unreadAdminMessageIds = unreadAdminMessages
     .map((clientMessage: any) => clientMessage.id)
     .join(",");
+  const clientAvatar = userData?.whoAmI?.avatarUrl || defaultClientAvatar;
 
   const submitMessageToAdmin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -181,41 +188,59 @@ function MessagesClientContent() {
               const isClientMessage = clientMessage.senderRole === "Client";
 
               return (
-              <article
-                className={
-                  isClientMessage
-                    ? "admin-chat-message admin-chat-message-client"
-                    : "admin-chat-message admin-chat-message-admin"
-                }
-                key={clientMessage.id}
-              >
-                <div>
-                  <strong>
-                    {isClientMessage ? "Vous" : "BeautyPlace"}
-                  </strong>
-                  <span>
-                    {new Date(clientMessage.createdAt).toLocaleString("fr-FR")}
-                  </span>
-                </div>
-                <p>{clientMessage.message}</p>
-                <span
+                <article
                   className={
                     isClientMessage
-                      ? "message-read-status"
-                      : clientMessage.readAt
-                      ? "message-read-status"
-                      : "message-unread-status"
+                      ? "admin-chat-message-row admin-chat-message-row-client"
+                      : "admin-chat-message-row admin-chat-message-row-admin"
                   }
+                  key={clientMessage.id}
                 >
-                  {isClientMessage
-                    ? clientMessage.readAt
-                      ? "✓✓ Lu par BeautyPlace"
-                      : "● Non lu par BeautyPlace"
-                    : clientMessage.readAt
-                    ? "✓✓ Lu"
-                    : "● Non lu"}
-                </span>
-              </article>
+                  <img
+                    className="chat-avatar"
+                    src={isClientMessage ? clientAvatar : beautyPlaceAvatar}
+                    alt={isClientMessage ? "Photo du client" : "BeautyPlace"}
+                    onError={(event) => {
+                      event.currentTarget.src = isClientMessage
+                        ? defaultClientAvatar
+                        : defaultClientAvatar;
+                    }}
+                  />
+                  <div
+                    className={
+                      isClientMessage
+                        ? "admin-chat-message admin-chat-message-client"
+                        : "admin-chat-message admin-chat-message-admin"
+                    }
+                  >
+                    <div>
+                      <strong>{isClientMessage ? "Vous" : "BeautyPlace"}</strong>
+                      <span>
+                        {new Date(clientMessage.createdAt).toLocaleString(
+                          "fr-FR"
+                        )}
+                      </span>
+                    </div>
+                    <p>{clientMessage.message}</p>
+                    <span
+                      className={
+                        isClientMessage
+                          ? "message-read-status"
+                          : clientMessage.readAt
+                          ? "message-read-status"
+                          : "message-unread-status"
+                      }
+                    >
+                      {isClientMessage
+                        ? clientMessage.readAt
+                          ? "✓✓ Lu par BeautyPlace"
+                          : "● Non lu par BeautyPlace"
+                        : clientMessage.readAt
+                        ? "✓✓ Lu"
+                        : "● Non lu"}
+                    </span>
+                  </div>
+                </article>
               );
             })}
           </div>

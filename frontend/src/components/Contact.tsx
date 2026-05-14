@@ -103,6 +103,7 @@ function Contact() {
               type="email"
               id="email"
               name="email"
+              placeholder="exemple@gmail.com"
               value={formData.email}
               onChange={handleChange}
               required

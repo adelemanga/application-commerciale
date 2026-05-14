@@ -71,7 +71,7 @@ const start = async () => {
       origin: allowedOrigins.split(","),
       credentials: true,
     }),
-    express.json({ limit: "2mb" }),
+    express.json({ limit: process.env.GRAPHQL_BODY_LIMIT || "20mb" }),
     expressMiddleware(server, {
     context: async ({ req, res }) => {
       if (process.env.JWT_SECRET_KEY === undefined) {
