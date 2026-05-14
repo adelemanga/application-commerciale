@@ -18,16 +18,16 @@ const formatPrice = (price?: number) =>
 
 const statusLabels: Record<string, string> = {
   submitted: "Commande reçue",
-  validated: "Validee par BeautyPlace",
+  validated: "Validée par BeautyPlace",
   ongoing: "En preparation",
-  shipped: "Colis envoye",
-  ended: "Colis livre / commande terminee",
+  shipped: "Colis envoyé",
+  ended: "Colis livré / commande terminée",
 };
 
 const deliveryLabels: Record<string, string> = {
-  home: "Livraison a domicile",
+  home: "Livraison à domicile",
   relay: "Point relais",
-  store: "Retrait magasin",
+  store: "Retrait en magasin",
 };
 
 const groupArticlesByProduct = (articles: any[] = []) =>
@@ -95,6 +95,12 @@ const getOrderedArticles = (reservation: any) => {
     return [];
   }
 };
+
+const canShowClientInvoice = (reservation: any) =>
+  reservation?.deliveryMethod === "store" ||
+  Boolean(
+    reservation?.shippingCarrier?.trim() && reservation?.trackingNumber?.trim()
+  );
 
 function ClientOrderHistoryContent() {
   const router = useRouter();
@@ -194,6 +200,7 @@ function ClientOrderHistoryContent() {
             const deliveryLabel =
               deliveryLabels[reservation.deliveryMethod || "home"] ||
               "Livraison a domicile";
+            const hasClientInvoice = canShowClientInvoice(reservation);
 
             return (
               <article className="order-row" key={reservation.id}>
@@ -232,7 +239,7 @@ function ClientOrderHistoryContent() {
                 </div>
 
                 <div className="order-products">
-                  <span className="admin-mini-label">Produits commandes</span>
+                  <span className="admin-mini-label">Produits commandés</span>
                   <p>
                     {orderedArticles.length} produit(s), {productLines.length}{" "}
                     reference(s) - {formatPrice(item.totalPrice)}
@@ -263,7 +270,9 @@ function ClientOrderHistoryContent() {
                     className="restore-order-button"
                     href={`/suivi-commandes?commande=${reservation.id}`}
                   >
-                    Voir le suivi et la facture
+                    {hasClientInvoice
+                      ? "Voir le suivi et la facture"
+                      : "Voir le suivi"}
                   </Link>
                   <button
                     type="button"
@@ -271,9 +280,13 @@ function ClientOrderHistoryContent() {
                     disabled={deletingInvoice}
                     onClick={() => deleteInvoiceFromHistory(reservation.id)}
                   >
-                    {deletingInvoice
+                    {hasClientInvoice
+                      ? deletingInvoice
+                        ? "Suppression..."
+                        : "Supprimer cette facture"
+                      : deletingInvoice
                       ? "Suppression..."
-                      : "Supprimer cette facture"}
+                      : "Supprimer de mon espace client"}
                   </button>
                 </div>
               </article>

@@ -232,7 +232,10 @@ function AdminContent() {
 
       return (
         reservation.status !== "ended" &&
+        reservation.paymentMethod === "card" &&
         reservation.paymentStatus === "paid" &&
+        Boolean(reservation.stripeSessionId) &&
+        Boolean(reservation.stripePaymentConfirmedAt) &&
         orderedArticles.length > 0 &&
         total > 0
       );
@@ -485,6 +488,7 @@ function AdminContent() {
     reservationId: string,
     status: string,
     paymentStatus: string,
+    requiresShippingCarrier = false,
     shippingCarrier = "",
     trackingNumber = ""
   ) => {
@@ -494,6 +498,39 @@ function AdminContent() {
       delete next[reservationId];
       return next;
     });
+
+    if (requiresShippingCarrier && !shippingCarrier.trim()) {
+      const message =
+        "Choisissez un transporteur avant d'enregistrer cette commande.";
+      setNotice(message);
+      setOrderFeedbacks((current) => ({
+        ...current,
+        [reservationId]: {
+          type: "error",
+          message,
+        },
+      }));
+      return;
+    }
+
+    if (
+      requiresShippingCarrier &&
+      ["shipped", "ended"].includes(status) &&
+      !trackingNumber.trim()
+    ) {
+      const message =
+        "Renseignez le numero de suivi avant d'enregistrer une commande envoyée.";
+      setNotice(message);
+      setOrderFeedbacks((current) => ({
+        ...current,
+        [reservationId]: {
+          type: "error",
+          message,
+        },
+      }));
+      return;
+    }
+
     setUpdatingOrderId(reservationId);
     try {
       await updateReservationAdmin({
@@ -510,7 +547,7 @@ function AdminContent() {
         ...current,
         [reservationId]: {
           type: "success",
-          message: "Modifications enregistrées avec succes.",
+          message: "Modifications enregistrées avec succès.",
         },
       }));
       setOrderDrafts((currentDrafts) => {
@@ -586,7 +623,7 @@ function AdminContent() {
         <p className="shop-kicker">Administration</p>
         <h1>Interface administrateur</h1>
         <p>
-          Retrouvez les reservations clients, les produits commandes, les prix
+          Retrouvez les reservations clients, les produits commandés, les prix
           et la gestion du stock au meme endroit.
         </p>
         <div className="admin-shortcuts">
@@ -642,7 +679,8 @@ function AdminContent() {
             const isOnlinePaid =
               reservation.paymentMethod === "card" &&
               reservation.paymentStatus === "paid" &&
-              Boolean(reservation.stripeSessionId);
+              Boolean(reservation.stripeSessionId) &&
+              Boolean(reservation.stripePaymentConfirmedAt);
             const hasOnlinePaymentIntent =
               reservation.paymentMethod === "card" &&
               Boolean(reservation.stripeSessionId);
@@ -732,7 +770,7 @@ function AdminContent() {
                   )}
                 </div>
                 <div className="order-products">
-                  <span className="admin-mini-label">Produits commandes</span>
+                  <span className="admin-mini-label">Produits commandés</span>
                   <p>
                     {orderedArticles.length} produit(s), {productLines.length}{" "}
                     reference(s) - {formatPrice(total)}
@@ -822,7 +860,9 @@ function AdminContent() {
                             )
                           }
                         >
-                          <option value="">A definir</option>
+                          <option value="" disabled>
+                            Choisir un transporteur
+                          </option>
                           <option value="La Poste">La Poste</option>
                           <option value="Colissimo">Colissimo</option>
                           <option value="Chronopost">Chronopost</option>
@@ -853,9 +893,8 @@ function AdminContent() {
                     (reservation.shippingCarrier ||
                       reservation.trackingNumber) && (
                       <p className="admin-tracking-summary">
-                        {reservation.shippingCarrier ||
-                          "Transporteur à definir"}{" "}
-                        - {reservation.trackingNumber || "numéro à renseigner"}
+                        {reservation.shippingCarrier || "Transporteur requis"} -{" "}
+                        {reservation.trackingNumber || "numéro à renseigner"}
                       </p>
                     )}
                   <span className={`status-pill ${paymentModeClass}`}>
@@ -882,6 +921,7 @@ function AdminContent() {
                           ? "ended"
                           : orderDraft.status,
                         orderDraft.paymentStatus,
+                        isShippableOrder,
                         isShippableOrder ? orderDraft.shippingCarrier : "",
                         isShippableOrder ? orderDraft.trackingNumber : ""
                       )

@@ -104,17 +104,7 @@ function MessagesClientContent() {
       return;
     }
 
-    if (
-      typeof window === "undefined" ||
-      window.sessionStorage.getItem("mark-client-messages-read") !== "1"
-    ) {
-      return;
-    }
-
     markMessagesAsRead()
-      .then(() => {
-        window.sessionStorage.removeItem("mark-client-messages-read");
-      })
       .catch(() => undefined);
   }, [
     isClient,

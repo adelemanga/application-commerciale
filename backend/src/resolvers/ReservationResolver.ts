@@ -50,7 +50,7 @@ const statusUpdateLabels: Record<ReservationStatus, string> = {
   [ReservationStatus.Submitted]: "Commande reçue",
   [ReservationStatus.Validated]: "Commande validee",
   [ReservationStatus.Ongoing]: "Commande en preparation",
-  [ReservationStatus.Shipped]: "Colis envoye",
+  [ReservationStatus.Shipped]: "Colis envoyé",
   [ReservationStatus.Ended]: "Commande terminee",
 };
 
@@ -107,6 +107,59 @@ const calculateReservationTotal = (reservation: Reservation) => {
 const hasPaidOrderValue = (reservation: Reservation) =>
   reservation.articles?.some((article) => Number(article.product?.price) > 0) ||
   calculateReservationTotal(reservation) > 0;
+
+const hasConfirmedOnlinePayment = (reservation: Reservation) =>
+  reservation.paymentMethod === "card" &&
+  reservation.paymentStatus === PaymentStatus.Paid &&
+  Boolean(reservation.stripeSessionId) &&
+  Boolean(reservation.stripePaymentConfirmedAt);
+
+const verifyStripePaymentConfirmation = async (reservation: Reservation) => {
+  if (
+    reservation.stripePaymentConfirmedAt ||
+    reservation.paymentMethod !== "card" ||
+    reservation.paymentStatus !== PaymentStatus.Paid ||
+    !reservation.stripeSessionId
+  ) {
+    return reservation;
+  }
+
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!stripeSecretKey) {
+    return reservation;
+  }
+
+  try {
+    const response = await axios.get(
+      `https://api.stripe.com/v1/checkout/sessions/${reservation.stripeSessionId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+        },
+      }
+    );
+
+    if (response.data.payment_status === "paid") {
+      reservation.stripePaymentConfirmedAt = new Date(
+        response.data.created ? response.data.created * 1000 : Date.now()
+      );
+      await reservation.save();
+    }
+  } catch (error) {
+    console.warn(
+      `Impossible de verifier le paiement Stripe pour la reservation ${reservation.id}.`,
+      error
+    );
+  }
+
+  return reservation;
+};
+
+const verifyStripePaymentConfirmations = async (reservations: Reservation[]) => {
+  await Promise.all(reservations.map(verifyStripePaymentConfirmation));
+  return reservations;
+};
 
 const enrichSnapshotWithLocalProducts = async (reservation: Reservation) => {
   if (!reservation.articlesSnapshot) {
@@ -284,12 +337,13 @@ export class ReservationResolver {
     });
 
     await backfillStripeSnapshots(reservations);
+    await verifyStripePaymentConfirmations(reservations);
 
     return reservations.filter(
       (reservation) =>
         !reservation.archivedByAdmin &&
         !reservation.removedFromAdminHistory &&
-        reservation.paymentStatus === PaymentStatus.Paid &&
+        hasConfirmedOnlinePayment(reservation) &&
         reservation.status !== ReservationStatus.Pending &&
         calculateReservationTotal(reservation) > 0
     );
@@ -305,6 +359,7 @@ export class ReservationResolver {
     });
 
     await backfillStripeSnapshots(reservations);
+    await verifyStripePaymentConfirmations(reservations);
     await normalizeEndedPaidReservations(reservations);
 
     return reservations.filter(
@@ -376,6 +431,8 @@ export class ReservationResolver {
         },
       });
 
+      await verifyStripePaymentConfirmations(reservations);
+
       const uniqueReservations = new Map<string, Reservation>();
 
       reservations.forEach((reservation) => {
@@ -394,7 +451,7 @@ export class ReservationResolver {
             Boolean(reservation.articlesSnapshot);
 
           return (
-            reservation.paymentStatus === PaymentStatus.Paid &&
+            hasConfirmedOnlinePayment(reservation) &&
             hasProducts &&
             totalPrice > 0
           );
@@ -730,6 +787,9 @@ export class ReservationResolver {
     reservation.paymentMethod = "card";
     reservation.paymentStatus = PaymentStatus.Paid;
     reservation.stripeSessionId = sessionId;
+    reservation.stripePaymentConfirmedAt = new Date(
+      response.data.created ? response.data.created * 1000 : Date.now()
+    );
     if (!reservation.articlesSnapshot) {
       reservation.articlesSnapshot = createArticlesSnapshot(
         reservation.articles
@@ -801,10 +861,26 @@ export class ReservationResolver {
       throw new Error("Invalid payment status");
     }
 
+    await verifyStripePaymentConfirmation(reservation);
+
+    if (
+      (paymentStatus as PaymentStatus) === PaymentStatus.Paid &&
+      !hasConfirmedOnlinePayment(reservation)
+    ) {
+      throw new Error(
+        "Paiement carte non confirme par Stripe. Cette commande ne peut pas etre marquee payee."
+      );
+    }
+
     const isOnlinePaid =
       reservation.paymentMethod === "card" &&
       (paymentStatus as PaymentStatus) === PaymentStatus.Paid &&
-      Boolean(reservation.stripeSessionId);
+      Boolean(reservation.stripeSessionId) &&
+      Boolean(reservation.stripePaymentConfirmedAt);
+    const isShippableDelivery =
+      isOnlinePaid && reservation.deliveryMethod !== "store";
+    const cleanShippingCarrier = shippingCarrier?.trim() || "";
+    const cleanTrackingNumber = trackingNumber?.trim() || "";
 
     const nextStatus =
       !isOnlinePaid && (paymentStatus as PaymentStatus) === PaymentStatus.Paid
@@ -814,6 +890,24 @@ export class ReservationResolver {
     if (nextStatus === ReservationStatus.Shipped && !isOnlinePaid) {
       throw new Error(
         "Seules les commandes payées en ligne peuvent être marquees comme colis envoyé."
+      );
+    }
+
+    if (isShippableDelivery && !cleanShippingCarrier) {
+      throw new Error(
+        "Choisissez un transporteur avant d'enregistrer cette commande."
+      );
+    }
+
+    if (
+      isShippableDelivery &&
+      [ReservationStatus.Shipped, ReservationStatus.Ended].includes(
+        nextStatus
+      ) &&
+      !cleanTrackingNumber
+    ) {
+      throw new Error(
+        "Renseignez le numero de suivi avant d'enregistrer une commande envoyée."
       );
     }
 
@@ -828,11 +922,11 @@ export class ReservationResolver {
 
     reservation.status = nextStatus;
     reservation.paymentStatus = finalPaymentStatus;
-    reservation.shippingCarrier = isOnlinePaid
-      ? shippingCarrier?.trim() || null
+    reservation.shippingCarrier = isShippableDelivery
+      ? cleanShippingCarrier
       : null;
-    reservation.trackingNumber = isOnlinePaid
-      ? trackingNumber?.trim() || null
+    reservation.trackingNumber = isShippableDelivery
+      ? cleanTrackingNumber || null
       : null;
     if (!reservation.articlesSnapshot) {
       reservation.articlesSnapshot = createArticlesSnapshot(
@@ -850,15 +944,19 @@ export class ReservationResolver {
     if (hasOrderUpdate && reservation.user) {
       const statusLabel =
         statusUpdateLabels[reservation.status] || reservation.status;
+      const trackingChanged =
+        previousCarrier !== reservation.shippingCarrier ||
+        previousTrackingNumber !== reservation.trackingNumber;
       const trackingLine = reservation.trackingNumber
-        ? ` Transporteur : ${
-            reservation.shippingCarrier || "a definir"
-          }, suivi : ${reservation.trackingNumber}.`
+        ? ` Transporteur : ${reservation.shippingCarrier}, suivi : ${reservation.trackingNumber}.`
         : "";
+      const notificationPrefix = trackingChanged
+        ? `Mise a jour du suivi de votre commande #${reservation.id}`
+        : `Avancement de votre commande #${reservation.id}`;
       const platformMessage = ClientMessage.create({
         client: reservation.user,
         senderRole: "Admin",
-        message: `Avancement de votre commande #${reservation.id} : ${statusLabel}.${trackingLine}`,
+        message: `${notificationPrefix} : ${statusLabel}.${trackingLine}`,
         readAt: undefined,
       });
 

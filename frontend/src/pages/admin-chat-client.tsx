@@ -149,21 +149,9 @@ function AdminChatClientContent() {
       return;
     }
 
-    const readIntentKey = `mark-admin-chat-read:${selectedEmail}`;
-
-    if (
-      typeof window === "undefined" ||
-      window.sessionStorage.getItem(readIntentKey) !== "1"
-    ) {
-      return;
-    }
-
     markConversationAsRead({
       variables: { clientEmail: selectedEmail },
     })
-      .then(() => {
-        window.sessionStorage.removeItem(readIntentKey);
-      })
       .catch(() => undefined);
   }, [
     isAdmin,

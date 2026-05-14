@@ -121,6 +121,10 @@ export class Reservation extends BaseEntity {
   @Column({ nullable: true })
   confirmationEmailSentAt?: Date;
 
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  stripePaymentConfirmedAt?: Date;
+
   @Field(() => User)
   @ManyToOne(() => User, (user) => user.reservations)
   user: User;

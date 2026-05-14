@@ -130,6 +130,17 @@ const getOrderDisplayType = (reservation: any) => {
   return "Commande en cours";
 };
 
+const requiresTrackingForInvoice = (reservation: any) =>
+  reservation?.paymentMethod === "card" &&
+  reservation?.paymentStatus === "paid" &&
+  reservation?.deliveryMethod !== "store";
+
+const canShowClientInvoice = (reservation: any) =>
+  !requiresTrackingForInvoice(reservation) ||
+  Boolean(
+    reservation?.shippingCarrier?.trim() && reservation?.trackingNumber?.trim()
+  );
+
 const trackingSteps = [
   {
     status: "submitted",
@@ -148,7 +159,7 @@ const trackingSteps = [
   },
   {
     status: "shipped",
-    label: "Colis envoye",
+    label: "Colis envoyé",
     detail: "Le colis est remis au transporteur avec son numero de suivi.",
   },
   {
@@ -331,8 +342,8 @@ const buildPdfDocument = (invoice: InvoicePdfData) => {
   };
 
   rect(0, 0, 595, pageHeight, "0.99 0.97 0.95");
-  rect(0, 734, 595, 108, "0.33 0.12 0.16");
-  rect(0, 728, 595, 6, "0.83 0.54 0.45");
+  rect(0, 734, 595, 108, "0.36 0.18 0.31");
+  rect(0, 728, 595, 6, "0.89 0.67 0.75");
 
   text("Beauty Place", 42, 795, 25, "1 1 1", "F2");
   text("Facture client", 42, 772, 11, "0.98 0.88 0.82");
@@ -340,8 +351,8 @@ const buildPdfDocument = (invoice: InvoicePdfData) => {
   text(`Commande du ${invoice.date}`, 435, 774, 9, "0.98 0.88 0.82");
 
   rect(42, 612, 511, 92, "1 1 1");
-  rect(42, 701, 511, 3, "0.83 0.54 0.45");
-  text("Client", 62, 678, 11, "0.33 0.12 0.16", "F2");
+  rect(42, 701, 511, 3, "0.89 0.67 0.75");
+  text("Client", 62, 678, 11, "0.36 0.18 0.31", "F2");
   text(
     invoice.clientName || invoice.email,
     62,
@@ -354,14 +365,14 @@ const buildPdfDocument = (invoice: InvoicePdfData) => {
   text(invoice.phone, 62, 629, 9);
   multiline(invoice.address, 62, 615, 44, 8);
 
-  text("Commande", 330, 678, 11, "0.33 0.12 0.16", "F2");
+  text("Commande", 330, 678, 11, "0.36 0.18 0.31", "F2");
   text(`Statut : ${invoice.status}`, 330, 660, 9);
   text(`Paiement : ${invoice.payment}`, 330, 645, 9);
   text(`Mode : ${invoice.deliveryMode}`, 330, 630, 9);
   multiline(invoice.deliveryDetail, 330, 615, 42, 8);
 
-  text("Produits commandes", 42, 570, 14, "0.33 0.12 0.16", "F2");
-  rect(42, 540, 511, 24, "0.33 0.12 0.16");
+  text("Produits commandés", 42, 570, 14, "0.36 0.18 0.31", "F2");
+  rect(42, 540, 511, 24, "0.36 0.18 0.31");
   text("Produit", 58, 548, 9, "1 1 1", "F2");
   text("Quantite", 382, 548, 9, "1 1 1", "F2");
   text("Total", 480, 548, 9, "1 1 1", "F2");
@@ -376,18 +387,18 @@ const buildPdfDocument = (invoice: InvoicePdfData) => {
     rowY -= 34;
   });
 
-  rect(348, rowY - 34, 205, 45, "0.33 0.12 0.16");
+  rect(348, rowY - 34, 205, 45, "0.36 0.18 0.31");
   text("Total facture", 368, rowY - 7, 10, "0.98 0.88 0.82");
   text(invoice.total, 468, rowY - 10, 16, "1 1 1", "F2");
 
   const shippingY = rowY - 90;
   rect(42, shippingY, 511, 52, "1 1 1");
-  text("Livraison et suivi", 62, shippingY + 32, 11, "0.33 0.12 0.16", "F2");
+  text("Livraison et suivi", 62, shippingY + 32, 11, "0.36 0.18 0.31", "F2");
   text(`Transporteur : ${invoice.carrier}`, 62, shippingY + 15, 9);
   text(`Numero de suivi : ${invoice.trackingNumber}`, 330, shippingY + 15, 9);
 
   rect(42, 52, 511, 58, "0.98 0.94 0.92");
-  text("Merci pour votre commande.", 62, 86, 13, "0.33 0.12 0.16", "F2");
+  text("Merci pour votre commande.", 62, 86, 13, "0.36 0.18 0.31", "F2");
   text(
     "Beauty Place reste disponible pour toute question depuis votre espace client.",
     62,
@@ -502,6 +513,12 @@ function TrackingContent() {
     Boolean(reservation?.stripeSessionId);
   const deliveryMethod = reservation?.deliveryMethod || "home";
   const isStorePickup = deliveryMethod === "store";
+  const requiresShippingDetails = isOnlinePaid && !isStorePickup;
+  const hasCompleteShippingDetails = reservation
+    ? canShowClientInvoice(reservation)
+    : false;
+  const canDisplayInvoice =
+    Boolean(reservation && selectedOrder) && hasCompleteShippingDetails;
   const deliveryLabel =
     deliveryLabels[deliveryMethod] || "Livraison a domicile";
   const deliveryDetail =
@@ -534,7 +551,7 @@ function TrackingContent() {
     .join(" ");
 
   const invoiceData: InvoicePdfData | undefined =
-    reservation && selectedOrder
+    reservation && selectedOrder && canDisplayInvoice
       ? {
           id: reservation.id,
           date: formatDate(reservation.createdAt),
@@ -554,14 +571,12 @@ function TrackingContent() {
             reservation.paymentStatus,
           deliveryMode: deliveryLabel,
           deliveryDetail,
-          carrier:
-            isOnlinePaid && !isStorePickup
-              ? reservation.shippingCarrier || "A definir"
-              : "Non concerne",
-          trackingNumber:
-            isOnlinePaid && !isStorePickup
-              ? reservation.trackingNumber || "A venir"
-              : "Retrait en magasin",
+          carrier: requiresShippingDetails
+            ? reservation.shippingCarrier || "Transporteur en attente"
+            : "Non concerne",
+          trackingNumber: requiresShippingDetails
+            ? reservation.trackingNumber || "A venir"
+            : "Retrait en magasin",
           products: productLines.map((line) => ({
             name: line.product.name,
             quantity: line.quantity,
@@ -652,52 +667,72 @@ function TrackingContent() {
         <section className="tracking-layout">
           <aside className="tracking-list">
             <h2>Mes commandes</h2>
-            {trackedOrders.map((item: any) => (
-              <div className="tracking-order-card" key={item.reservation.id}>
-                <button
-                  type="button"
-                  className={
-                    item.reservation.id === reservation.id
-                      ? "tracking-order active"
-                      : "tracking-order"
-                  }
-                  onClick={() => setActiveOrderId(String(item.reservation.id))}
-                >
-                  <span>Commande #{item.reservation.id}</span>
-                  <small>{formatDate(item.reservation.createdAt)}</small>
-                  <small>{getOrderDisplayType(item.reservation)}</small>
-                  <small>
-                    {statusLabels[item.reservation.status] ||
-                      item.reservation.status}
-                  </small>
-                  <strong>{formatPrice(item.totalPrice)}</strong>
-                </button>
-                <button
-                  type="button"
-                  className="tracking-delete-button"
-                  disabled={deletingInvoice}
-                  onClick={() =>
-                    deleteInvoiceFromClientSpace(item.reservation.id)
-                  }
-                >
-                  Supprimer cette facture
-                </button>
-              </div>
-            ))}
+            {trackedOrders.map((item: any) => {
+              const itemHasInvoice = canShowClientInvoice(item.reservation);
+
+              return (
+                <div className="tracking-order-card" key={item.reservation.id}>
+                  <button
+                    type="button"
+                    className={
+                      item.reservation.id === reservation.id
+                        ? "tracking-order active"
+                        : "tracking-order"
+                    }
+                    onClick={() =>
+                      setActiveOrderId(String(item.reservation.id))
+                    }
+                  >
+                    <span>Commande #{item.reservation.id}</span>
+                    <small>{formatDate(item.reservation.createdAt)}</small>
+                    <small>{getOrderDisplayType(item.reservation)}</small>
+                    <small>
+                      {statusLabels[item.reservation.status] ||
+                        item.reservation.status}
+                    </small>
+                    <strong>{formatPrice(item.totalPrice)}</strong>
+                  </button>
+                  {itemHasInvoice && (
+                    <button
+                      type="button"
+                      className="tracking-delete-button"
+                      disabled={deletingInvoice}
+                      onClick={() =>
+                        deleteInvoiceFromClientSpace(item.reservation.id)
+                      }
+                    >
+                      Supprimer cette facture
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </aside>
 
           <article className="receipt-card">
             <div className="receipt-header">
               <div>
-                <p className="shop-kicker">Facture Beauty Place</p>
-                <h2>Reçu #{reservation.id}</h2>
+                <p className="shop-kicker">
+                  {canDisplayInvoice
+                    ? "Facture Beauty Place"
+                    : "Suivi Beauty Place"}
+                </p>
+                <h2>
+                  {canDisplayInvoice
+                    ? `Reçu #${reservation.id}`
+                    : `Commande #${reservation.id}`}
+                </h2>
                 <p>Commande du {formatDate(reservation.createdAt)}</p>
               </div>
               <div className="receipt-actions">
-                {pdfDataUrl && (
+                {canDisplayInvoice && pdfDataUrl ? (
                   <a href={pdfDataUrl} download={pdfFilename}>
                     Telecharger votre facture
                   </a>
+                ) : (
+                  <button type="button" disabled>
+                    Facture en attente
+                  </button>
                 )}
                 <button
                   type="button"
@@ -705,13 +740,28 @@ function TrackingContent() {
                   disabled={deletingInvoice}
                   onClick={() => deleteInvoiceFromClientSpace()}
                 >
-                  {deletingInvoice ? "Suppression..." : "Supprimer la facture"}
+                  {deletingInvoice
+                    ? "Suppression..."
+                    : canDisplayInvoice
+                    ? "Supprimer la facture"
+                    : "Supprimer de mon espace client"}
                 </button>
-                <button type="button" onClick={() => window.print()}>
+                <button
+                  type="button"
+                  disabled={!canDisplayInvoice}
+                  onClick={() => window.print()}
+                >
                   Imprimer
                 </button>
               </div>
             </div>
+
+            {!canDisplayInvoice && (
+              <p className="receipt-waiting-note">
+                Facture disponible après ajout du transporteur et du numéro de
+                suivi par BeautyPlace.
+              </p>
+            )}
 
             <div className="tracking-steps" aria-label="Etapes du colis">
               {activeSteps.map((step) => (
@@ -756,14 +806,14 @@ function TrackingContent() {
 
             {isOnlinePaid && !isStorePickup ? (
               <div className="tracking-number-card">
-                <span>Transporteur et numero</span>
+                <span>Transporteur et numéro</span>
                 <strong>
                   {reservation.shippingCarrier || "Transporteur a venir"}
                 </strong>
                 <p>
                   {reservation.trackingNumber
                     ? `Numero de suivi : ${reservation.trackingNumber}`
-                    : "Le numero de suivi apparaitra ici quand BeautyPlace aura expedie le colis."}
+                    : "Le numéro de suivi apparaîtra ici quand BeautyPlace aura expedié le colis."}
                 </p>
                 {trackingUrl && (
                   <a href={trackingUrl} target="_blank" rel="noreferrer">
@@ -807,7 +857,7 @@ function TrackingContent() {
                 <span>{isStorePickup ? "Retrait" : "Expedition"}</span>
                 <strong>
                   {isOnlinePaid && !isStorePickup
-                    ? reservation.shippingCarrier || "A definir"
+                    ? reservation.shippingCarrier || "Transporteur en attente"
                     : deliveryLabel}
                 </strong>
                 <p>
@@ -838,14 +888,24 @@ function TrackingContent() {
             </div>
 
             <div className="receipt-total">
-              <span>Total facture</span>
+              <span>
+                {canDisplayInvoice ? "Total facture" : "Total commande"}
+              </span>
               <strong>{formatPrice(selectedOrder.totalPrice)}</strong>
             </div>
 
-            <p className="receipt-note">
-              Un email de confirmation/facturation est envoyé au client lorsque
-              la commande est validée apres paiement ou envoyée a BeautyPlace.
-            </p>
+            {canDisplayInvoice ? (
+              <p className="receipt-note">
+                Un email de confirmation/facturation est envoyé au client
+                lorsque la commande est validée apres paiement ou envoyée a
+                BeautyPlace.
+              </p>
+            ) : (
+              <p className="receipt-note">
+                La facture sera disponible lorsque BeautyPlace aura renseigné le
+                transporteur et le numero de suivi.
+              </p>
+            )}
           </article>
         </section>
       ) : (

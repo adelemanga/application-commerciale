@@ -9,6 +9,7 @@ import { HANDLE_RESERVATION } from "../graphql/mutations";
 import {
   GET_ALL_PRODUCTS,
   GET_CURRENT_RESERVATION_BY_USER_ID,
+  GET_MY_CLIENT_MESSAGES,
   GET_RESERVATIONS_BY_USER_ID,
   WHO_AM_I,
 } from "../graphql/queries";
@@ -99,7 +100,25 @@ function ClientsContent() {
   const isLoggedIn = Boolean(user?.isLoggedIn);
   const isClient = isLoggedIn && user?.role === Role.User;
   const isAdmin = isLoggedIn && user?.role === Role.Admin;
+  const { data: clientMessagesData } = useQuery(GET_MY_CLIENT_MESSAGES, {
+    fetchPolicy: "network-only",
+    pollInterval: 10000,
+    skip: !isClient,
+  });
   const orderHistory = historyData?.getReservationsByUserId ?? [];
+  const unreadOrderNotifications = (
+    clientMessagesData?.getMyClientMessages ?? []
+  ).filter((clientMessage: any) => {
+    const messageText = clientMessage.message?.toLowerCase() || "";
+
+    return (
+      clientMessage.senderRole === "Admin" &&
+      !clientMessage.readAt &&
+      (messageText.includes("avancement de votre commande") ||
+        messageText.includes("mise a jour du suivi de votre commande"))
+    );
+  });
+  const latestOrderNotification = unreadOrderNotifications[0];
   const paidOrderHistory = orderHistory.filter((item: any) => {
     const reservation = item.reservation;
     const orderedArticles = getOrderedArticles(reservation);
@@ -300,7 +319,7 @@ function ClientsContent() {
             className="client-mailbox-shortcut"
             href="/historique-commandes"
           >
-            Historique
+            Historique des commandes
           </Link>
           <Link
             className="client-mailbox-shortcut"
@@ -311,6 +330,23 @@ function ClientsContent() {
           >
             Messagerie
           </Link>
+        </section>
+      )}
+
+      {isClient && unreadOrderNotifications.length > 0 && (
+        <section className="client-order-alert" role="status">
+          <div>
+            <span>{unreadOrderNotifications.length}</span>
+            <strong>
+              {unreadOrderNotifications.length > 1
+                ? "nouvelles notifications colis"
+                : "nouvelle notification colis"}
+            </strong>
+            {latestOrderNotification?.message && (
+              <p>{latestOrderNotification.message}</p>
+            )}
+          </div>
+          <Link href="/messages-client">Ouvrir la messagerie</Link>
         </section>
       )}
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 
 const services = [
   {
@@ -32,6 +33,41 @@ const services = [
 ];
 
 export default function HomePage() {
+  const servicesSliderRef = useRef<HTMLElement | null>(null);
+  const isSliderPausedRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      const slider = servicesSliderRef.current;
+
+      if (!slider || isSliderPausedRef.current) return;
+
+      const firstCard = slider.querySelector<HTMLElement>(
+        ".beauty-service-card"
+      );
+      const sliderStyles = window.getComputedStyle(slider);
+      const sliderGap =
+        Number.parseFloat(sliderStyles.columnGap || sliderStyles.gap) || 24;
+      const step = (firstCard?.offsetWidth || 262) + sliderGap;
+      const halfWidth = slider.scrollWidth / 2;
+      const nextScroll = slider.scrollLeft + step;
+
+      slider.scrollTo({
+        left: nextScroll >= halfWidth ? 0 : nextScroll,
+        behavior: "smooth",
+      });
+    }, 3500);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
   return (
     <main className="beauty-home">
       <section className="beauty-hero">
@@ -70,15 +106,45 @@ export default function HomePage() {
         </p>
       </section>
 
-      <section className="beauty-services" aria-label="Services beaute">
-        {services.map((service) => (
-          <article className="beauty-service-card" key={service.title}>
-            <Link className="beauty-service-image-link" href={service.pageHref}>
-              <img src={service.image} alt={service.title} />
-            </Link>
-            <Link href={service.href}>{service.title}</Link>
-          </article>
-        ))}
+      <section
+        className="beauty-services"
+        aria-label="Services beaute"
+        ref={servicesSliderRef}
+        onMouseEnter={() => {
+          isSliderPausedRef.current = true;
+        }}
+        onMouseLeave={() => {
+          isSliderPausedRef.current = false;
+        }}
+        onFocus={() => {
+          isSliderPausedRef.current = true;
+        }}
+        onBlur={() => {
+          isSliderPausedRef.current = false;
+        }}
+      >
+        {[...services, ...services].map((service, index) => {
+          const isDuplicate = index >= services.length;
+
+          return (
+            <article
+              aria-hidden={isDuplicate}
+              className="beauty-service-card"
+              key={`${service.title}-${index}`}
+            >
+              <Link
+                className="beauty-service-image-link"
+                href={service.pageHref}
+                tabIndex={isDuplicate ? -1 : 0}
+              >
+                <img src={service.image} alt={service.title} />
+              </Link>
+              <Link href={service.href} tabIndex={isDuplicate ? -1 : 0}>
+                {service.title}
+              </Link>
+            </article>
+          );
+        })}
       </section>
 
       <section className="beauty-story">

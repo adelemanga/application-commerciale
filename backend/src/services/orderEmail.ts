@@ -139,7 +139,7 @@ const buildOrderHtml = (
   const trackingHtml = reservation.trackingNumber
     ? `
       <p><strong>Transporteur :</strong> ${
-        reservation.shippingCarrier || "A definir"
+        reservation.shippingCarrier || "Transporteur en attente"
       }</p>
       <p><strong>Numero de suivi :</strong> ${reservation.trackingNumber}</p>
       ${
@@ -280,7 +280,7 @@ export const sendTrackingUpdateEmail = async (reservation: Reservation) => {
           reservation.id
         } a ete confiee au transporteur.</p>
         <p><strong>Transporteur :</strong> ${
-          reservation.shippingCarrier || "A definir"
+          reservation.shippingCarrier || "Transporteur en attente"
         }</p>
         <p><strong>Numero de suivi :</strong> ${reservation.trackingNumber}</p>
         ${
@@ -330,7 +330,7 @@ export const sendOrderStatusUpdateEmail = async (reservation: Reservation) => {
         ${
           reservation.shippingCarrier || reservation.trackingNumber
             ? `<p><strong>Transporteur :</strong> ${
-                reservation.shippingCarrier || "A definir"
+                reservation.shippingCarrier || "Transporteur en attente"
               }</p>
               <p><strong>Numero de suivi :</strong> ${
                 reservation.trackingNumber || "A venir"

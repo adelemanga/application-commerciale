@@ -143,7 +143,7 @@ function TreatedOrdersContent() {
       <section className="admin-panel admin-orders">
         <div className="admin-section-heading">
           <div>
-            <p className="shop-kicker">Terminees</p>
+            <p className="shop-kicker">Terminées</p>
             <h2>Historique des commandes</h2>
           </div>
           <strong>{treatedReservations.length} traitee(s)</strong>
@@ -301,7 +301,7 @@ function TreatedOrdersContent() {
                 </div>
 
                 <div className="order-products">
-                  <span className="admin-mini-label">Produits commandes</span>
+                  <span className="admin-mini-label">Produits commandés</span>
                   <p>
                     {orderedArticles.length} produit(s), {productLines.length}{" "}
                     reference(s) - {formatPrice(total)}

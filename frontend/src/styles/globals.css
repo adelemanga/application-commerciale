@@ -361,7 +361,7 @@ h1 {
 .receipt-actions a {
   display: inline-flex;
   align-items: center;
-  background: var(--rose);
+  background: var(--plum);
 }
 
 .receipt-actions {
@@ -372,7 +372,21 @@ h1 {
 }
 
 .receipt-actions button:first-child {
-  background: var(--rose);
+  background: #6f5d63;
+}
+
+.receipt-actions button:disabled {
+  cursor: not-allowed;
+}
+
+.receipt-waiting-note {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  color: var(--plum);
+  background: #fff1d7;
+  border: 1px solid rgba(94, 47, 79, 0.12);
+  border-radius: 8px;
+  font-weight: 800;
 }
 
 .tracking-steps {
@@ -1229,6 +1243,65 @@ main,
 .client-mailbox-shortcut:hover {
   color: #ffffff;
   background: var(--plum);
+}
+
+.client-order-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto 18px;
+  padding: 16px 18px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--plum), #8d426a);
+  border: 1px solid rgba(94, 47, 79, 0.14);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+
+.client-order-alert div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  min-width: 0;
+  align-items: center;
+}
+
+.client-order-alert span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--plum);
+  background: #fff1d7;
+  border-radius: 999px;
+  font-weight: 950;
+}
+
+.client-order-alert strong {
+  font-weight: 950;
+}
+
+.client-order-alert p {
+  grid-column: 2;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.88);
+  overflow-wrap: anywhere;
+}
+
+.client-order-alert a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  color: var(--plum);
+  background: #ffffff;
+  border-radius: 999px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .nav-message-link,
@@ -3056,12 +3129,17 @@ form button:hover,
 }
 
 .restore-order-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 42px;
+  padding: 10px 14px;
   color: #ffffff;
   background: #365f43;
   border: 1px solid #365f43;
   border-radius: 6px;
   font-weight: 900;
+  text-align: center;
 }
 
 .restore-order-button:hover {
@@ -4540,17 +4618,26 @@ iframe.video-background {
 }
 
 .beauty-services {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   gap: 24px;
   width: min(1120px, calc(100% - 34px));
   margin: 0 auto 72px;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.beauty-services::-webkit-scrollbar {
+  display: none;
 }
 
 .beauty-service-card {
   display: grid;
+  flex: 0 0 calc((100% - 72px) / 4);
   gap: 14px;
   justify-items: center;
+  scroll-snap-align: start;
   padding: 0 0 18px;
   background: transparent;
   border: 0;
@@ -5027,8 +5114,16 @@ footer a {
     border-radius: 0 0 8px 8px;
   }
 
-  .beauty-services {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .beauty-service-card {
+    flex-basis: calc((100% - 24px) / 2);
+  }
+
+  .beauty-service-image-link {
+    width: min(100%, 340px);
+  }
+
+  .beauty-service-card img {
+    max-width: 340px;
   }
 
   .service-details {
@@ -5103,8 +5198,19 @@ footer a {
   }
 
   .beauty-services {
-    grid-template-columns: 1fr;
     gap: 18px;
+  }
+
+  .beauty-service-card {
+    flex-basis: 100%;
+  }
+
+  .beauty-service-image-link {
+    width: min(100%, 300px);
+  }
+
+  .beauty-service-card img {
+    max-width: 300px;
   }
 
   .beauty-story {

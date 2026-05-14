@@ -130,6 +130,7 @@ export const GET_RESERVATIONS_BY_USER_ID = gql`
         paymentMethod
         paymentStatus
         stripeSessionId
+        stripePaymentConfirmedAt
         articlesSnapshot
         pickupDate
         pickupTime
@@ -245,6 +246,7 @@ export const GET_ALL_RESERVATIONS = gql`
       paymentMethod
       paymentStatus
       stripeSessionId
+      stripePaymentConfirmedAt
       articlesSnapshot
       pickupDate
       pickupTime
@@ -288,6 +290,7 @@ export const GET_TREATED_RESERVATIONS_ADMIN = gql`
       paymentMethod
       paymentStatus
       stripeSessionId
+      stripePaymentConfirmedAt
       articlesSnapshot
       pickupDate
       pickupTime
